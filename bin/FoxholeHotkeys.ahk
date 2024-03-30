@@ -17,7 +17,7 @@ SetWorkingDir, %A_ScriptDir%
 ;------------------------------------------------------------;
 ; If you want to manually change keybinds, use the           ;
 ; FoxholeHotkeysManual version in the bin folder.            ;
-; https://github.com/Tommythebold/foxholeautoclicker         ;
+; https://github.com/Tommythebold/Foxhole-AutoClicker        ;
 ;------------------------------------------------------------;
 
 IniRead, HoldW, KeyBindings.ini, Hotkeys, Hold W

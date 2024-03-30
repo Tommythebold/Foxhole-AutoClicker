@@ -10,7 +10,7 @@ Menu, Tray, Icon, bin\icon.ico
 Gui, New
 Gui, Margin, 40, 10
 Gui, Font, s11, Verdana
-Gui, Add, Picture,w150 h150, bin\iconLarge.jpg
+Gui, Add, Picture,w150 h150, bin\iconLarge.png
 Gui, Add, Text,, Foxhole AutoClicker                   
 Gui, Font, s8, Verdana
 Gui, Add, GroupBox, x20 y200 w170 h115, Controls
@@ -22,7 +22,7 @@ Gui, Add, Button, xp+20 yp+20 gChangeKeybindGUI, Change Keybinds
 Gui, Add, Button, gviewKeybinds, View Keybinds
 Gui, Font, s8, Verdana
 Gui, Add, CheckBox, gontop, Window Always on Top?
-Gui, Add, Link,, <a href="https://github.com/Tommythebold/foxholeautoclicker">GitHub</a>
+Gui, Add, Link,, <a href="https://github.com/Tommythebold/Foxhole-AutoClicker">GitHub</a>
 Gui, Show
 return
 
@@ -31,7 +31,7 @@ ChangeKeybindGUI:
 	Gui, Keys:New
 	Gui, Keys:Margin, 40, 10
 	Gui, Keys:Font, s12, Verdana
-	Gui, Keys:Add, Picture,w150 h150, bin\iconLarge.jpg
+	Gui, Keys:Add, Picture,w150 h150, bin\iconLarge.png
 	Gui, Keys:Add, Text,, Change Keybinds
 	Gui, Keys:Font, s8, Verdana
 	Gui, Keys:Add, Button, gSetKeyW, Set Key for Hold W

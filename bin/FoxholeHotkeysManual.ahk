@@ -5,7 +5,7 @@
 ; Foxhole Hotkeys - Manual Version - by Tommythebold         ;
 ;------------------------------------------------------------;
 ; A version with GUI for setting keybinds is available at    ;
-; https://github.com/Tommythebold/foxholeautoclicker         ;
+; https://github.com/Tommythebold/Foxhole-AutoClicker        ;
 ;------------------------------------------------------------;
 ; Default key bindings are:									 ;
 ; F2 - Spam Left Click at Location                           ;
