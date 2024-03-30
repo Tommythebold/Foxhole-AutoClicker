@@ -1,6 +1,7 @@
 
+
+
 # Foxhole AutoClicker
-![iconLarge](https://github.com/Tommythebold/foxholeautoclicker/assets/11021249/03a6a10e-fc8d-4f8d-ae09-2bcd12e0b5af)
 Foxhole AutoClicker is a program with 5 hotkeys that work **while tabbed out.** 
 
 The following features are available:
