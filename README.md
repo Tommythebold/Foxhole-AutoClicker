@@ -1,5 +1,5 @@
 # Foxhole AutoClicker
-Foxhole AutoClicker is a program with 5 hotkeys that work <ins>**while tabbed out.**</ins> These hotkeys are custom-made for Foxhole, and are single-action autoclickers that are allowed by the TOS.
+Foxhole AutoClicker is a program with 5 hotkeys that work <ins>**while tabbed out**</ins>, meaning you can use your mouse and keyboard freely while they are active. These hotkeys are custom-made for Foxhole, and are single-action autoclickers that are allowed by the TOS.
 
 The following features are available:
 * **Spam left click at location -** (for pulling items/building). This hotkey even allows you to move your mouse anywhere and be tabbed out, since it simulates clicks at the coordinates where you pressed the hotkey on your Foxhole game window.
