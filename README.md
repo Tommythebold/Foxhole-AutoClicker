@@ -3,9 +3,8 @@
 
 # Foxhole AutoClicker
 Foxhole AutoClicker is a program with 5 hotkeys that work **while tabbed out.** 
-<img src="https://github.com/Tommythebold/foxholeautoclicker/assets/11021249/aab912f8-146d-4c6c-8d39-4713e745b68b" width="100" height="100">
 
-![foxholeunion1](https://github.com/Tommythebold/foxholeautoclicker/assets/11021249/aab912f8-146d-4c6c-8d39-4713e745b68b)
+<img src="https://github.com/Tommythebold/foxholeautoclicker/assets/11021249/aab912f8-146d-4c6c-8d39-4713e745b68b" width="300" height="300">
 
 The following features are available:
 * Spam left click at location (for pulling items)
