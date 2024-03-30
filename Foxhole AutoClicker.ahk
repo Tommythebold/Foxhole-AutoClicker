@@ -102,11 +102,10 @@ KeyWaitCombo(Options:="")
     ih := InputHook(Options)
     if !InStr(Options, "V")
         ih.VisibleNonText := false
-    ih.KeyOpt("{All}", "E")  ; End
-    ; Exclude the modifiers
+    ih.KeyOpt("{All}", "E")
     ih.KeyOpt("{LCtrl}{RCtrl}{LAlt}{RAlt}{LShift}{RShift}{LWin}{RWin}", "-E")
     ih.Start()
-    ErrorLevel := ih.Wait()  ; Store EndReason in ErrorLevel
+    ErrorLevel := ih.Wait()
 	var := ih.EndMods . ih.EndKey
 	endkey := ih.EndKey
 	var1 := Escape
@@ -116,7 +115,7 @@ KeyWaitCombo(Options:="")
 		}
 	ToolTip, Set to %var%
 	SetTimer, RemoveToolTip, -2000
-    return ih.EndMods . ih.EndKey  ; Return a string like <^<+Esc
+    return ih.EndMods . ih.EndKey 
 }
 
 RemoveToolTip:

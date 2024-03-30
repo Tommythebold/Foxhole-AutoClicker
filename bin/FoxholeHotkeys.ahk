@@ -2,16 +2,8 @@
 #MaxThreadsPerHotkey 2
 SetWorkingDir, %A_ScriptDir%
 
-IniRead, HoldW, KeyBindings.ini, Hotkeys, Hold W
-IniRead, HoldS, KeyBindings.ini, Hotkeys, Hold S
-IniRead, HoldLeft, KeyBindings.ini, Hotkeys, Hold Left
-IniRead, HoldRight, KeyBindings.ini, Hotkeys, Hold Right
-IniRead, SpamLeft, KeyBindings.ini, Hotkeys, Spam Left
-IniRead, Suspend, KeyBindings.ini, Hotkeys, Suspend
-IniRead, Close, KeyBindings.ini, Hotkeys, Close
-
 ;------------------------------------------------------------;
-; Foxhole Hotkeys by Tommythebold                            ;
+; Foxhole Hotkeys - GUI Version - by Tommythebold            ;
 ;------------------------------------------------------------;
 ; Default key bindings are:									 ;
 ; F2 - Spam Left Click at Location                           ;
@@ -23,11 +15,18 @@ IniRead, Close, KeyBindings.ini, Hotkeys, Close
 ; F9 - Exit Program                                          ;
 ; All hotkeys work while tabbed out.                         ;
 ;------------------------------------------------------------;
-; To change keybindings, edit the value before the "::".     ;
-; A list of keys and modifiers can be found here:            ;
-; https://www.autohotkey.com/docs/v1/lib/Send.htm#Parameters ;
-; ^ = Control, + = Shift, ! = Alt, etc.                      ;
+; If you want to manually change keybinds, use the           ;
+; FoxholeHotkeysManual version in the bin folder.            ;
+; https://github.com/Tommythebold/foxholeautoclicker         ;
 ;------------------------------------------------------------;
+
+IniRead, HoldW, KeyBindings.ini, Hotkeys, Hold W
+IniRead, HoldS, KeyBindings.ini, Hotkeys, Hold S
+IniRead, HoldLeft, KeyBindings.ini, Hotkeys, Hold Left
+IniRead, HoldRight, KeyBindings.ini, Hotkeys, Hold Right
+IniRead, SpamLeft, KeyBindings.ini, Hotkeys, Spam Left
+IniRead, Suspend, KeyBindings.ini, Hotkeys, Suspend
+IniRead, Close, KeyBindings.ini, Hotkeys, Close
 
 Hotkey, %HoldW%, Hold_W
 Hotkey, %HoldS%, Hold_S
