@@ -5,7 +5,7 @@ SetWorkingDir, %A_ScriptDir%
 ;------------------------------------------------------------;
 ; Foxhole Hotkeys - GUI Version - by Tommythebold            ;
 ;------------------------------------------------------------;
-; Default key bindings are:									 ;
+; Default key bindings are:                                  ;
 ; F2 - Spam Left Click at Location                           ;
 ; F3 - Hold W                                                ;
 ; F4 - Hold S                                                ;
