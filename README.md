@@ -12,7 +12,9 @@ The following features are available:
 ![image](https://github.com/Tommythebold/Foxhole-AutoClicker/assets/11021249/62f07a9e-00e4-427e-877e-092ff3e59e25)   ![image](https://github.com/Tommythebold/Foxhole-AutoClicker/assets/11021249/3377e997-95a1-4591-b1fa-9c386a36b187)
 
 # How to Install
-To install, head to the [Releases page](https://github.com/Tommythebold/foxholeautoclicker/releases) on the right-hand side of this page. Download the most recent release, which will be a zip file named FoxholeAutoClicker. Drag the folder inside anywhere on your PC. To launch the GUI, double click the Foxhole AutoClicker file. 
+This program requires you to install [AutoHotKey](https://www.autohotkey.com/) - either version will work.
+
+To install the program itself, head to the [Releases page](https://github.com/Tommythebold/foxholeautoclicker/releases) on the right-hand side of this page. Download the most recent release, which will be a zip file named FoxholeAutoClicker. Drag the folder inside anywhere on your PC. To launch the GUI, double click the Foxhole AutoClicker file. 
 
 # How to Use
 The program comes with default keybinds, but these can easily be changed by clicking the 'Change Keybinds' button in the program. To change a key, click it's corrosponding button, then press the key/key combination of your choice. Any modifiers or extra keys (shift, alt, mouse buttons, etc.) will work. 
