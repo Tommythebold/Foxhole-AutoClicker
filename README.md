@@ -24,10 +24,11 @@ The default keybinds are:
 * **F2** - Spam left click at location
 * **F3** - Hold W
 * **F4** - Hold S
-* **F5** - Hold Right Click
-* **F6** - Hold Left Click
-* **F7** - Suspend Hotkeys
-* **F9** - Exit Hotkeys
+* **F5** - Left Click Building
+* **F6** - Hold Right Click
+* **F7** - Hold Left Click
+* **F9** - Suspend Hotkeys
+* **F10** - Exit Hotkeys
 
 Any changes to your keybinds are saved in the KeyBindings.ini file, and are saved between sessions. The keys will update upon restarting the hotkeys from the GUI. 
 
