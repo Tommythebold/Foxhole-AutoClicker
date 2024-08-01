@@ -71,9 +71,9 @@ return
 Spam_Left_Build:
 T := !T
 While (T) {
-	PostMessage, 0x0200, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_MOVEMOUSE
-	PostMessage, 0x201, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_LBUTTONDOWN  
-  	PostMessage, 0x202, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_LBUTTONUP  
+	PostMessage, 0x0200, 0, cX&0xFFFF | cY<<16,, ahk_class UnrealWindow ; WM_MOVEMOUSE
+	PostMessage, 0x201, 0, cX&0xFFFF | cY<<16,, ahk_class UnrealWindow ; WM_LBUTTONDOWN  
+  	PostMessage, 0x202, 0, cX&0xFFFF | cY<<16,, ahk_class UnrealWindow ; WM_LBUTTONUP  
 	sleep, 100
 }
 return
