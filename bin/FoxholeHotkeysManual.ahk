@@ -7,7 +7,7 @@
 ; A version with GUI for setting keybinds is available at    ;
 ; https://github.com/Tommythebold/Foxhole-AutoClicker        ;
 ;------------------------------------------------------------;
-; Default key bindings are:                                  ;
+; Default key bindings are:									 ;
 ; F2 - Spam Left Click at Location                           ;
 ; F3 - Hold W                                                ;
 ; F4 - Hold S                                                ;

@@ -39,6 +39,7 @@ ChangeKeybindGUI:
 	Gui, Keys:Add, Button, gSetKeyRight, Set Key for Hold Right
 	Gui, Keys:Add, Button, gSetKeyLeft, Set Key for Hold Left
 	Gui, Keys:Add, Button, gSetKeySpamLeft, Set Key for Spam Left
+	Gui, Keys:Add, Button, gSetKeySpamLeftBuild, Set Key for Spam Left Building
 	Gui, Keys:Add, Button, gSetKeySuspend, Set Key for Suspend
 	Gui, Keys:Add, Button, gSetKeyClose, Set Key for Close
 	Gui, Keys:Show
@@ -77,6 +78,13 @@ SetKeySpamLeft:
 {
 	var1 := KeyWaitCombo()
 	IniWrite, %var1%, bin\KeyBindings.ini, Hotkeys, Spam Left
+}
+return
+
+SetKeySpamLeftBuild:
+{
+	var1 := KeyWaitCombo()
+	IniWrite, %var1%, bin\KeyBindings.ini, Hotkeys, Spam Left Build
 }
 return
 

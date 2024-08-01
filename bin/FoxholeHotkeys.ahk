@@ -5,7 +5,7 @@ SetWorkingDir, %A_ScriptDir%
 ;------------------------------------------------------------;
 ; Foxhole Hotkeys - GUI Version - by Tommythebold            ;
 ;------------------------------------------------------------;
-; Default key bindings are:                                  ;
+; Default key bindings are:									 ;
 ; F2 - Spam Left Click at Location                           ;
 ; F3 - Hold W                                                ;
 ; F4 - Hold S                                                ;
@@ -25,6 +25,7 @@ IniRead, HoldS, KeyBindings.ini, Hotkeys, Hold S
 IniRead, HoldLeft, KeyBindings.ini, Hotkeys, Hold Left
 IniRead, HoldRight, KeyBindings.ini, Hotkeys, Hold Right
 IniRead, SpamLeft, KeyBindings.ini, Hotkeys, Spam Left
+IniRead, SpamLeftBuild, KeyBindings.ini, Hotkeys, Spam Left Build
 IniRead, Suspend, KeyBindings.ini, Hotkeys, Suspend
 IniRead, Close, KeyBindings.ini, Hotkeys, Close
 
@@ -33,6 +34,7 @@ Hotkey, %HoldS%, Hold_S
 Hotkey, %HoldRight%, Hold_Right
 Hotkey, %HoldLeft%, Hold_Left
 Hotkey, %SpamLeft%, Spam_Left
+Hotkey, %SpamLeftBuild%, Spam_Left_Build
 Hotkey, %Suspend%, Key_Suspend
 Hotkey, %Close%, Key_Close
 return
@@ -61,6 +63,19 @@ While (T) {
 	ControlClick, X%xpos% Y%ypos%, ahk_class UnrealWindow, , Left, 1, D
 }
 ControlClick, X%xpos% Y%ypos%, ahk_class UnrealWindow, , Left, 1, u
+return
+
+;------------------------------;
+; Spam Left Click for Building ;
+;------------------------------;
+Spam_Left_Build:
+T := !T
+While (T) {
+	PostMessage, 0x0200, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_MOVEMOUSE
+	PostMessage, 0x201, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_LBUTTONDOWN  
+  	PostMessage, 0x202, 0, cX&0xFFFF | cY<<16,, OMB 1 ; WM_LBUTTONUP  
+	sleep, 100
+}
 return
 
 ;------------------;
