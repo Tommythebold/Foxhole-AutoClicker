@@ -7,6 +7,7 @@ The following features are available:
 * **Hold S -** (to move backwards)
 * **Hold Right Click -** (for rotating cranes/binos/aiming)
 * **Hold Left Click -** (for Harvesters/building)
+* **v1.1 - Spam Left Building -** (for building without character rotating)
 
   
 ![image](https://github.com/Tommythebold/Foxhole-AutoClicker/assets/11021249/62f07a9e-00e4-427e-877e-092ff3e59e25)   ![image](https://github.com/Tommythebold/Foxhole-AutoClicker/assets/11021249/3377e997-95a1-4591-b1fa-9c386a36b187)
@@ -29,6 +30,11 @@ The default keybinds are:
 * **F9** - Exit Hotkeys
 
 Any changes to your keybinds are saved in the KeyBindings.ini file, and are saved between sessions. The keys will update upon restarting the hotkeys from the GUI. 
+
+# Changelog
+v1.1 - Adds the "Spam Left Building" key. This key allows you to build with a hammer/shovel/etc without your character changing direction when your mouse moves. Requested by Saturnda.
+
+v1.0 - Initial release.
 
 
 # More Info/Troubleshooting
