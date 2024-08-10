@@ -3,7 +3,7 @@
 
 **AutoHotKey (required) -> [Click Here to Download](https://www.autohotkey.com/download/ahk-v2.exe)**
 
-Foxhole AutoClicker is a program with 5 hotkeys that work <ins>**while tabbed out**</ins>, meaning you can use your mouse and keyboard freely while they are active. These hotkeys are custom-made for Foxhole, and are single-action autoclickers that are allowed by the TOS.
+Foxhole AutoClicker is a program with 6 hotkeys that work <ins>**while tabbed out**</ins>, meaning you can use your mouse and keyboard freely while they are active. These hotkeys are custom-made for Foxhole, and are single-action autoclickers that are allowed by the TOS.
 
 The following features are available:
 * **Spam left click at location -** (for pulling items/building). This hotkey simulates clicks at the coordinates where you pressed the hotkey on your Foxhole game window.
