@@ -96,13 +96,18 @@ return
 ;---------;
 
 Hold_W:
-T := !T
-If (T) {
-	While (T) {
-		ControlSend,,{w down}, ahk_class UnrealWindow
-	}
+toggle := !toggle
+ControlSend,,{w down}, ahk_class UnrealWindow
+if (toggle) {
+	SetTimer, PressW, 1000
+}	else {
+	SetTimer, PressW, Off
+	ControlSend,,{w up}, ahk_class UnrealWindow
 }
-ControlSend,,{w up}, ahk_class UnrealWindow
+return
+
+PressW:
+ControlSend,,{w down}, ahk_class UnrealWindow
 return
 
 ;--------;
@@ -110,15 +115,19 @@ return
 ;--------;
 
 Hold_S:
-T := !T
-	If (T) {
-		While (T) {
-			ControlSend,,{s down}, ahk_class UnrealWindow
+toggle := !toggle
+ControlSend,,{s down}, ahk_class UnrealWindow
+if (toggle) {
+	SetTimer, PressS, 1000
+}	else {
+	SetTimer, PressS, Off
+	ControlSend,,{s up}, ahk_class UnrealWindow
 }
-}
-ControlSend,,{s up}, ahk_class UnrealWindow
 return
 
+PressS:
+ControlSend,,{s down}, ahk_class UnrealWindow
+return
 
 ;-----------------;
 ; Suspend Program ;
