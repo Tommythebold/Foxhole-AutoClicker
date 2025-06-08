@@ -52,4 +52,4 @@ v1.0 - Initial release.
 * If you are familiar with AutoHotKey, or don't want to bother with the GUI at all, there is a 'manual' version of the script in the \bin folder. You can `right click > edit with ...` the FoxholeHotkeysManual script to set keybinds manually. There are instructions in the comments of the script on how to do so.
 
 # Contact
-If you have any questions, issues, or feature requests, you can open an issue on this GitHub page, or message me on Discord at tommythebold#0001.
+If you have any questions, issues, or feature requests, you can open an issue on this GitHub page, or message me on Discord (tommythebold).
