@@ -1,7 +1,7 @@
 # Foxhole AutoClicker
-**New update v1.2 -> [Click Here to Download](https://github.com/Tommythebold/Foxhole-AutoClicker/releases/download/1.2/Foxhole.AutoClicker.-.v1.2.zip)**
+**Foxhole Autoclicker v1.2 -> [Click Here to Download](https://github.com/Tommythebold/Foxhole-AutoClicker/releases/download/1.2/Foxhole.AutoClicker.-.v1.2.zip)**
 
-**AutoHotKey (required) -> [Click Here to Download](https://www.autohotkey.com/download/ahk-v2.exe)**
+**AutoHotKey v1.1 (required) -> [Click Here to Download](https://www.autohotkey.com/download/ahk-install.exe)**
 
 Foxhole AutoClicker is a program with 6 hotkeys that work <ins>**while tabbed out**</ins>, meaning you can use your mouse and keyboard freely while they are active. These hotkeys are custom-made for Foxhole, and are single-action autoclickers that are allowed by the TOS.
 
