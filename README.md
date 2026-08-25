@@ -1,5 +1,5 @@
 # Foxhole AutoClicker
-Foxhole Autoclicker v2.0 is almost ready for release, help test it [here](https://discord.com/channels/492127642544373770/1223743733560905889). Features new hotkeys, a full rewrite in AutoHotKey v2, massively improved autoclicker logic fixing all current bugs and issues, new features like tooltips, no need to launch a second hotkey script, and more. (Posted 8/24/2026)
+Foxhole Autoclicker v2.0 is almost ready for release, help test it [here](https://github.com/Tommythebold/Foxhole-AutoClicker/releases). Features new hotkeys, a full rewrite in AutoHotKey v2, massively improved autoclicker logic fixing all current bugs and issues, new features like tooltips, no need to launch a second hotkey script, and more. (Posted 8/24/2026)
 
 If either version isn't working for you, be sure to completely disable/close Epic Overlay/Launcher, it completely blocks AutoHotKey from interacting with Foxhole. (Posted 8/24/2026)
 
