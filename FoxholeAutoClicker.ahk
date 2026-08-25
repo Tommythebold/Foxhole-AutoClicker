@@ -5,10 +5,10 @@
 ;@Ahk2Exe-SetName Foxhole Autoclicker
 ;@Ahk2Exe-SetDescription Foxhole Autoclicker 2.0
 ;@Ahk2Exe-SetProductName Foxhole Autoclicker
-;@Ahk2Exe-SetVersion 2.0.0.0
-;@Ahk2Exe-SetProductVersion 2.0.0.0
+;@Ahk2Exe-SetVersion 2.0.1
+;@Ahk2Exe-SetProductVersion 2.0.1
 
-global AppVersion := "2.0"
+global AppVersion := "2.0.1"
 global NormalWindowTitle := "Foxhole Autoclicker " AppVersion
 global UpdateWindowTitle := NormalWindowTitle " - Update Available"
 global GitHubLatestReleaseApi := "https://api.github.com/repos/Tommythebold/Foxhole-AutoClicker/releases/latest"
@@ -1196,13 +1196,57 @@ Hotkey_AutoClick(*)
 SendBackgroundClick()
 {
     global ClickX, ClickY, TargetWindow
-    if WinExist(TargetWindow)
+
+    targetHwnd := WinExist(TargetWindow)
+    if !targetHwnd
+        return
+
+    clickCoords := MakeLParam(ClickX, ClickY)
+    restoreCoords := GetCurrentCursorClientLParam(targetHwnd)
+
+    PostMessage(0x0201, 0x0001, clickCoords, , "ahk_id " targetHwnd)
+    PostMessage(0x0202, 0, clickCoords, , "ahk_id " targetHwnd)
+
+    if (restoreCoords != "")
+        PostMessage(0x0200, 0, restoreCoords, , "ahk_id " targetHwnd)
+}
+
+GetCurrentCursorClientLParam(targetHwnd)
+{
+    cursorPoint := Buffer(8, 0)
+    if !DllCall("GetCursorPos", "Ptr", cursorPoint.Ptr)
+        return ""
+
+    if !DllCall("ScreenToClient", "Ptr", targetHwnd, "Ptr", cursorPoint.Ptr)
+        return ""
+
+    cursorX := NumGet(cursorPoint, 0, "Int")
+    cursorY := NumGet(cursorPoint, 4, "Int")
+
+    clientRect := Buffer(16, 0)
+    if DllCall("GetClientRect", "Ptr", targetHwnd, "Ptr", clientRect.Ptr)
     {
-        LParam := MakeLParam(ClickX, ClickY)
-        PostMessage(0x0200, 0, LParam, , TargetWindow)
-        PostMessage(0x0201, 0, LParam, , TargetWindow)
-        PostMessage(0x0202, 0, LParam, , TargetWindow)
+        clientWidth := NumGet(clientRect, 8, "Int")
+        clientHeight := NumGet(clientRect, 12, "Int")
+
+        if (clientWidth > 0)
+            cursorX := Max(0, Min(clientWidth - 1, cursorX))
+        if (clientHeight > 0)
+            cursorY := Max(0, Min(clientHeight - 1, cursorY))
     }
+
+    return MakeLParam(cursorX, cursorY)
+}
+
+RestoreGameCursorToPhysicalPosition(targetWindow)
+{
+    targetHwnd := WinExist(targetWindow)
+    if !targetHwnd
+        return
+
+    restoreCoords := GetCurrentCursorClientLParam(targetHwnd)
+    if (restoreCoords != "")
+        PostMessage(0x0200, 0, restoreCoords, , "ahk_id " targetHwnd)
 }
 
 MakeLParam(x, y)
@@ -1429,7 +1473,7 @@ Hotkey_ClickHold(*)
     {
         if WinActive(TargetWindow)
         {
-            CoordMode "Mouse", "Window"
+            CoordMode "Mouse", "Client"
             MouseGetPos(&ClickX, &ClickY)
         }
         else
@@ -1440,20 +1484,18 @@ Hotkey_ClickHold(*)
 
         ShowTooltip("Holding Left", 2500)
 
-        PackedCoords := (ClickX & 0xFFFF) | (ClickY << 16)
-        PostMessage(0x0200, 0, PackedCoords, , TargetWindow)
-        PostMessage(0x0201, 0, PackedCoords, , TargetWindow)
-
-        SetTimer(SendBackgroundHold, 15)
+        PackedCoords := MakeLParam(ClickX, ClickY)
+        PostMessage(0x0201, 0x0001, PackedCoords, , TargetWindow)
+        RestoreGameCursorToPhysicalPosition(TargetWindow)
     }
     else
     {
         ShowTooltip("Holding Left OFF", 1500)
         SetTimer(SendBackgroundHold, 0)
 
-        PackedCoords := (ClickX & 0xFFFF) | (ClickY << 16)
-        PostMessage(0x0200, 0, PackedCoords, , TargetWindow)
+        PackedCoords := MakeLParam(ClickX, ClickY)
         PostMessage(0x0202, 0, PackedCoords, , TargetWindow)
+        RestoreGameCursorToPhysicalPosition(TargetWindow)
     }
 }
 
@@ -1461,12 +1503,7 @@ SendBackgroundHold()
 {
     global ClickX, ClickY, TargetWindow
     if WinExist(TargetWindow)
-    {
-        PackedCoords := (ClickX & 0xFFFF) | (ClickY << 16)
-        PostMessage(0x0200, 0, PackedCoords, , TargetWindow)
-        PostMessage(0x0201, 0, PackedCoords, , TargetWindow)
-
-    }
+        PostMessage(0x0201, 0x0001, MakeLParam(ClickX, ClickY), , TargetWindow)
 }
 
 Hotkey_RightHold(*)
