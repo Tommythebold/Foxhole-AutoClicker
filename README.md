@@ -26,3 +26,7 @@ v1.0 - Initial release.
 
 # Contact
 If you have any questions, issues, or feature requests, you can open an issue on this GitHub page, or message me on Discord (tommythebold).
+
+# License & Credits
+* **Code:** Open-source under the **MIT License**.
+* **Artwork:** Official *Foxhole* assets owned entirely by [Siege Camp](https://siegecamp.com). Used purely for non-commercial community utility. The open-source license does **not** apply to these copyrighted graphics.
