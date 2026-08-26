@@ -1,11 +1,19 @@
 # Foxhole AutoClicker
 Get the latest version [**here**](https://github.com/Tommythebold/Foxhole-AutoClicker/releases). No requirements, just download the exe and run it. All hotkeys work **WHILE TABBED OUT!**
 
-
-<img width="412" height="743" alt="image" src="https://github.com/user-attachments/assets/b23cd70c-b61d-4b3f-a5b8-b53703744e16" />
+<img width="362" height="789" alt="image" src="https://github.com/user-attachments/assets/0c35cfb1-cc17-4cc7-8157-af3aa1eff514" />
 
 
 # Changelog
+v2.0.2
+- Added support to reybind outputs key, for AZERTY and other keyboard users. Toggled via the Change Output Keys checkbox.
+- Updated UI a bit, new column names, etc.
+- Moved banner and icon images to Bin folder.
+- Updated update check logic.
+
+v2.0.1
+- Fixed ghost cursor bug for Auto-Click and Hold Left.
+
 v2.0 
 - Fully rewritten in AHK v2
 - New Spam V and Train Slow hotkeys
