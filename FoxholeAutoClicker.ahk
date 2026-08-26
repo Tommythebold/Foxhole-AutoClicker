@@ -45,7 +45,7 @@ global ClickY := 0
 global DefaultClickX := 0
 global DefaultClickY := 0
 
-global AssetDir := A_ScriptDir "\Bin"
+global AssetDir := InitializeAssetDirectory()
 global IconPath := AssetDir "\AutoClicker2Icon.ico"
 
 if FileExist(IconPath)
@@ -309,6 +309,50 @@ RebindAction(actionName, newKey)
     CurrentKeys[actionName] := newKey
     SaveKeybind(actionName, newKey)
     return true
+}
+
+InitializeAssetDirectory()
+{
+    ; When running the source script, keep using the project-local Bin folder.
+    if !A_IsCompiled
+        return A_ScriptDir "\Bin"
+
+    ; Compiled releases are self-contained. Ahk2Exe embeds these files, and
+    ; FileInstall restores them to a versioned per-user runtime directory.
+    ; This lets a downloaded standalone EXE display banners without requiring
+    ; users to separately download or preserve the project Bin folder.
+    runtimeDir := A_AppData "\FoxholeAutoClicker\2.0.2\Bin"
+
+    try DirCreate(runtimeDir)
+    catch as e {
+        MsgBox(
+            "Foxhole AutoClicker could not create its banner asset folder.`n`n"
+            runtimeDir "`n`n" e.Message,
+            "Asset Setup Failed",
+            "Icon!"
+        )
+        return A_ScriptDir "\Bin"
+    }
+
+    try {
+        FileInstall "Bin\AutoClicker2Icon.ico", runtimeDir "\AutoClicker2Icon.ico", 1
+        FileInstall "Bin\Airborne.png", runtimeDir "\Airborne.png", 1
+        FileInstall "Bin\Entrenched.png", runtimeDir "\Entrenched.png", 1
+        FileInstall "Bin\Naval.png", runtimeDir "\Naval.png", 1
+        FileInstall "Bin\Inferno.png", runtimeDir "\Inferno.png", 1
+        FileInstall "Bin\TrenchWarfare.png", runtimeDir "\TrenchWarfare.png", 1
+        FileInstall "Bin\WarMachine.png", runtimeDir "\WarMachine.png", 1
+        FileInstall "Bin\WinterArmy.png", runtimeDir "\WinterArmy.png", 1
+    } catch as e {
+        MsgBox(
+            "Foxhole AutoClicker could not restore its embedded banner assets.`n`n"
+            e.Message,
+            "Asset Setup Failed",
+            "Icon!"
+        )
+    }
+
+    return runtimeDir
 }
 
 PrepareBannerAssets()
