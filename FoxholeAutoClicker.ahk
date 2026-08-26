@@ -1,17 +1,20 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-;@Ahk2Exe-SetMainIcon AutoClicker2Icon.ico
+;@Ahk2Exe-SetMainIcon Bin\AutoClicker2Icon.ico
 ;@Ahk2Exe-SetName Foxhole Autoclicker
 ;@Ahk2Exe-SetDescription Foxhole Autoclicker 2.0
 ;@Ahk2Exe-SetProductName Foxhole Autoclicker
-;@Ahk2Exe-SetVersion 2.0.1
-;@Ahk2Exe-SetProductVersion 2.0.1
+;@Ahk2Exe-SetVersion 2.0.2
+;@Ahk2Exe-SetProductVersion 2.0.2
 
-global AppVersion := "2.0.1"
+global AppVersion := "2.0.2"
 global NormalWindowTitle := "Foxhole Autoclicker " AppVersion
 global UpdateWindowTitle := NormalWindowTitle " - Update Available"
 global GitHubLatestReleaseApi := "https://api.github.com/repos/Tommythebold/Foxhole-AutoClicker/releases/latest"
+global LatestVersion := ""
+global UpdateAvailable := false
+global UpdateCheckComplete := false
 
 global TargetWindow := "ahk_class UnrealWindow"
 
@@ -34,6 +37,7 @@ global TooltipsEnabled := true
 global UiTooltipsEnabled := true
 
 global LaunchMinimized := false
+global ChangeOutputKeys := false
 
 global ClickX := 0
 global ClickY := 0
@@ -41,24 +45,11 @@ global ClickY := 0
 global DefaultClickX := 0
 global DefaultClickY := 0
 
-global RuntimeAssetDir := A_IsCompiled ? A_Temp "\FoxholeAutoclicker-" DllCall("GetCurrentProcessId", "UInt") : A_ScriptDir
+global AssetDir := A_ScriptDir "\Bin"
+global IconPath := AssetDir "\AutoClicker2Icon.ico"
 
-if A_IsCompiled
-{
-    if !DirExist(RuntimeAssetDir)
-        DirCreate(RuntimeAssetDir)
-
-    trayIconPath := RuntimeAssetDir "\AutoClicker2Icon.ico"
-    FileInstall "AutoClicker2Icon.ico", trayIconPath, 1
-    TraySetIcon(trayIconPath)
-}
-else
-{
-
-    localIconPath := A_ScriptDir "\AutoClicker2Icon.ico"
-    if FileExist(localIconPath)
-        TraySetIcon(localIconPath)
-}
+if FileExist(IconPath)
+    TraySetIcon(IconPath)
 
 global BannerDefinitions := [
     {fileName: "Airborne.png", displayName: "Airborne"},
@@ -107,19 +98,27 @@ global ActionLabels := Map(
     "AutoReverse", "Reverse",
     "ClickHold", "Hold Left Click",
     "RightHold", "Hold Right Click",
-    "VSpam", "Spam V Key",
+    "VSpam", "Submit Large Item",
     "TrainSlow", "Train Slow"
 )
 global ActionDescriptions := Map(
     "AutoClick", "Toggles background left-clicking at the cursor position. Works for no-rotation hammering too. Use Shift+Scroll to adjust the interval, max interval will pause it.",
-    "AutoWalk", "Toggles background W key presses to drive forward.",
-    "AutoReverse", "Toggles background S key presses to drive backward.",
+    "AutoWalk", "Toggles holding the configured Forward output key.",
+    "AutoReverse", "Toggles holding the configured Reverse output key.",
     "ClickHold", "Toggles holding left mouse for harvesters and CV's.",
     "RightHold", "Toggles holding right mouse button for binoculars and crane rotation.",
-    "VSpam", "Toggles background V key presses. For submitting large items.",
-    "TrainSlow", "Toggles timed W key presses. Use Shift+Scroll to adjust the interval."
+    "VSpam", "Repeatedly presses the configured Submit Large Item output key.",
+    "TrainSlow", "Periodically holds the configured Train Slow output key. Use Shift+Scroll to adjust the interval."
 )
 global CurrentKeys := Map()
+global OutputActionNames := ["AutoWalk", "AutoReverse", "VSpam", "TrainSlow"]
+global DefaultOutputKeys := Map(
+    "AutoWalk", "W",
+    "AutoReverse", "S",
+    "VSpam", "V",
+    "TrainSlow", "W"
+)
+global CurrentOutputKeys := Map()
 
 global SettingsDir := A_AppData "\Foxhole Autoclicker"
 global SettingsFile := SettingsDir "\FoxholeKeys.ini"
@@ -140,11 +139,15 @@ global ActionHandlers := Map(
 global RebindGui := ""
 global RebindButtons := Map()
 global RebindResetButtons := Map()
+global OutputKeyButtons := Map()
 global HelpControls := Map()
 global HoveredHelpHwnd := 0
 global ListeningForAction := ""
+global ListeningMode := ""
 global StatusCtrl := ""
 global PollKeyList := []
+global OutputCaptureHook := ""
+global ChangeOutputKeysCheckbox := ""
 
 LoadKeybinds()
 PrepareBannerAssets()
@@ -153,15 +156,25 @@ BuildGui()
 TraySetup()
 ApplyStartupWindowState()
 SetTimer(CheckForUpdate, -1000)
+SetTimer(CheckForUpdate, 21600000)
+OnExit(ReleaseAllOutputKeys)
 
 LoadKeybinds()
 {
-    global ActionNames, DefaultKeys, CurrentKeys, SettingsFile, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized, TrainSlowInterval, AutoClickInterval, BannerSelection
+    global ActionNames, DefaultKeys, CurrentKeys, OutputActionNames, DefaultOutputKeys, CurrentOutputKeys, SettingsFile, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized, ChangeOutputKeys, TrainSlowInterval, AutoClickInterval, BannerSelection
 
     for actionName in ActionNames
     {
         savedKey := IniRead(SettingsFile, "Keybinds", actionName, DefaultKeys[actionName])
         CurrentKeys[actionName] := savedKey
+    }
+
+    for actionName in OutputActionNames
+    {
+        savedOutputKey := IniRead(SettingsFile, "OutputKeys", actionName, DefaultOutputKeys[actionName])
+        if !IsValidOutputKey(savedOutputKey)
+            savedOutputKey := DefaultOutputKeys[actionName]
+        CurrentOutputKeys[actionName] := savedOutputKey
     }
 
     DefaultClickX := Integer(IniRead(SettingsFile, "ClickPos", "X", "0"))
@@ -170,6 +183,7 @@ LoadKeybinds()
     TooltipsEnabled := IniRead(SettingsFile, "Settings", "TooltipsEnabled", "1") = "1"
     UiTooltipsEnabled := IniRead(SettingsFile, "Settings", "UiTooltipsEnabled", "1") = "1"
     LaunchMinimized := IniRead(SettingsFile, "Settings", "LaunchMinimized", "0") = "1"
+    ChangeOutputKeys := IniRead(SettingsFile, "Settings", "ChangeOutputKeys", "0") = "1"
     BannerSelection := Trim(IniRead(SettingsFile, "Settings", "BannerSelection", "Random Cycle"))
     if BannerSelection = ""
         BannerSelection := "Random Cycle"
@@ -200,6 +214,12 @@ SaveLaunchMinimized(enabled)
     IniWrite(enabled ? "1" : "0", SettingsFile, "Settings", "LaunchMinimized")
 }
 
+SaveChangeOutputKeys(enabled)
+{
+    global SettingsFile
+    IniWrite(enabled ? "1" : "0", SettingsFile, "Settings", "ChangeOutputKeys")
+}
+
 SaveTrainSlowInterval(interval)
 {
     global SettingsFile
@@ -225,6 +245,12 @@ SaveKeybind(actionName, keyName)
 {
     global SettingsFile
     IniWrite(keyName, SettingsFile, "Keybinds", actionName)
+}
+
+SaveOutputKey(actionName, keyName)
+{
+    global SettingsFile
+    IniWrite(keyName, SettingsFile, "OutputKeys", actionName)
 }
 
 ApplyAllHotkeys()
@@ -287,45 +313,10 @@ RebindAction(actionName, newKey)
 
 PrepareBannerAssets()
 {
-    global BannerDefinitions, AvailableBanners, BannerAssetDir, RuntimeAssetDir
+    global BannerDefinitions, AvailableBanners, BannerAssetDir, AssetDir
 
     AvailableBanners := []
-    BannerAssetDir := A_IsCompiled ? RuntimeAssetDir "\Banners" : A_ScriptDir
-
-    if A_IsCompiled
-    {
-        if !DirExist(BannerAssetDir)
-            DirCreate(BannerAssetDir)
-
-        try
-        {
-            FileInstall "Airborne.png", BannerAssetDir "\Airborne.png", 1
-        }
-        try
-        {
-            FileInstall "Entrenched.png", BannerAssetDir "\Entrenched.png", 1
-        }
-        try
-        {
-            FileInstall "Naval.png", BannerAssetDir "\Naval.png", 1
-        }
-        try
-        {
-            FileInstall "Inferno.png", BannerAssetDir "\Inferno.png", 1
-        }
-        try
-        {
-            FileInstall "TrenchWarfare.png", BannerAssetDir "\TrenchWarfare.png", 1
-        }
-        try
-        {
-            FileInstall "WarMachine.png", BannerAssetDir "\WarMachine.png", 1
-        }
-        try
-        {
-            FileInstall "WinterArmy.png", BannerAssetDir "\WinterArmy.png", 1
-        }
-    }
+    BannerAssetDir := AssetDir
 
     for banner in BannerDefinitions
     {
@@ -545,22 +536,37 @@ RotateTopContent(*)
 
 BuildGui()
 {
-    global ActionNames, ActionLabels, ActionDescriptions, CurrentKeys, RebindGui, RebindButtons, RebindResetButtons, NormalWindowTitle
-    global HelpControls, StatusCtrl, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized
+    global ActionNames, ActionLabels, ActionDescriptions, CurrentKeys, CurrentOutputKeys, RebindGui, RebindButtons, RebindResetButtons, OutputKeyButtons, NormalWindowTitle
+    global HelpControls, StatusCtrl, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized, ChangeOutputKeys, ChangeOutputKeysCheckbox
     global AvailableBanners, BannerPicture, BannerDropDown, BannerDynamicControls
     global CurrentBannerFile, BannerVisible, BannerShift, BannerSelection
     global BannerControlBaseY, BannerGuiHeightHidden, BannerGuiHeightVisible, BannerLayoutChanging
     global TopMessageControl, TopMessageIndex, TopMessages
+    global UpdateAvailable, LatestVersion
 
     padding := 20
-    contentW := 380
+    contentW := ChangeOutputKeys ? 400 : 330
     winW := contentW + (padding * 2)
+
+    actionX := padding + 5
+    actionW := 110
+    hotkeyX := padding + 120
+    hotkeyW := 105
+    outputX := padding + 230
+    outputW := 55
+    resetX := ChangeOutputKeys ? padding + 290 : padding + 230
+    resetW := ChangeOutputKeys ? 70 : 75
+
     bannerHeight := Round(contentW * (206 / 679))
     bannerGap := 15
     BannerShift := bannerHeight + bannerGap
     BannerDynamicControls := []
     BannerControlBaseY := Map()
     BannerLayoutChanging := false
+    RebindButtons := Map()
+    RebindResetButtons := Map()
+    OutputKeyButtons := Map()
+    HelpControls := Map()
 
     RebindGui := Gui("-AlwaysOnTop", NormalWindowTitle)
     RebindGui.SetFont("s10", "Segoe UI")
@@ -576,7 +582,6 @@ BuildGui()
         initialBanner := CurrentBannerFile != "" ? FindAvailableBanner(CurrentBannerFile) : AvailableBanners[1]
         if IsObject(initialBanner)
         {
-
             try
             {
                 BannerPicture := RebindGui.AddPicture("x" padding " y" y " w" contentW " h" bannerHeight, initialBanner.path)
@@ -585,13 +590,11 @@ BuildGui()
             }
             catch
             {
-
                 BannerPicture := RebindGui.AddPicture("x" padding " y" y " w" contentW " h" bannerHeight)
                 BannerVisible := false
                 CurrentBannerFile := ""
             }
-
-            HelpControls[BannerPicture.Hwnd] := "Decorative banner. Use the Banner dropdown beside Tooltips On? to disable it, cycle images, or select a specific image."
+            HelpControls[BannerPicture.Hwnd] := "Decorative banner. Use the Banner dropdown to disable it, cycle images, or select a specific image."
             BannerPicture.Visible := BannerVisible
             if BannerVisible
                 y += BannerShift
@@ -603,28 +606,55 @@ BuildGui()
     BannerDynamicControls.Push(TopMessageControl)
     HelpControls[TopMessageControl.Hwnd] := "Cycles through setup guidance, support information, and the project link every 10 seconds."
 
-    y += 34
+    y += 28
+    actionHeader := RebindGui.AddText("x" actionX " y" y " w" actionW " Right", "Action")
+    hotkeyHeader := RebindGui.AddText("x" hotkeyX " y" y " w" hotkeyW " Center", "Hotkey")
+    headerCtrls := [actionHeader, hotkeyHeader]
+    if ChangeOutputKeys
+    {
+        outputHeader := RebindGui.AddText("x" outputX " y" y " w" outputW " Center", "Output")
+        headerCtrls.Push(outputHeader)
+    }
+    resetHeader := RebindGui.AddText("x" resetX " y" y " w" resetW " Center", "Reset")
+    headerCtrls.Push(resetHeader)
+    for headerCtrl in headerCtrls
+    {
+        headerCtrl.SetFont("s8 Bold", "Segoe UI")
+        BannerDynamicControls.Push(headerCtrl)
+    }
+    y += 25
+
     for actionName in ActionNames
     {
         label := ActionLabels[actionName]
-        keyText := DisplayNameForHotkeyString(CurrentKeys[actionName])
-
-        labelCtrl := RebindGui.AddText("x" (padding + 20) " y" y " w95 Right", label)
+        labelCtrl := RebindGui.AddText("x" actionX " y" y " w" actionW " Right", label)
         HelpControls[labelCtrl.Hwnd] := ActionDescriptions[actionName]
         BannerDynamicControls.Push(labelCtrl)
 
-        btn := RebindGui.AddButton("x" (padding + 120) " y" (y - 4) " w185 h30", "Rebind: " keyText)
+        btn := RebindGui.AddButton("x" hotkeyX " y" (y - 4) " w" hotkeyW " h30", DisplayNameForHotkeyString(CurrentKeys[actionName]))
         btn.OnEvent("Click", MakeRebindHandler(actionName))
         RebindButtons[actionName] := btn
-        HelpControls[btn.Hwnd] := "Click to assign a new hotkey for " label ". After clicking, press the key or key combination you want to use; press Escape to cancel."
+        HelpControls[btn.Hwnd] := "Click to assign the activation hotkey for " label ". Key combinations are supported; press Escape to cancel."
         BannerDynamicControls.Push(btn)
 
-        resetBtn := RebindGui.AddButton("x" (padding + 305) " y" (y - 4) " w65 h30", "Reset")
+        if ChangeOutputKeys && HasOutputKey(actionName)
+        {
+            outputBtn := RebindGui.AddButton("x" outputX " y" (y - 4) " w" outputW " h30", DisplayNameForOutputKey(CurrentOutputKeys[actionName]))
+            outputBtn.OnEvent("Click", MakeOutputKeyHandler(actionName))
+            OutputKeyButtons[actionName] := outputBtn
+            HelpControls[outputBtn.Hwnd] := "Click to choose the single keyboard key that " label " sends to Foxhole. Press Escape to cancel."
+            BannerDynamicControls.Push(outputBtn)
+        }
+
+        resetBtn := RebindGui.AddButton("x" resetX " y" (y - 4) " w" resetW " h30", "Reset")
         resetBtn.OnEvent("Click", MakeResetHandler(actionName))
         RebindResetButtons[actionName] := resetBtn
-        HelpControls[resetBtn.Hwnd] := "Restore " label " to its original default hotkey. Auto-Clicker and Train Slow also restore their default timing values."
+        resetTip := "Restore " label " to its original activation hotkey"
+        if HasOutputKey(actionName)
+            resetTip .= " and output key"
+        resetTip .= ". Auto-Clicker and Train Slow also restore timing defaults."
+        HelpControls[resetBtn.Hwnd] := resetTip
         BannerDynamicControls.Push(resetBtn)
-
         y += 40
     }
 
@@ -632,95 +662,107 @@ BuildGui()
     StatusCtrl := RebindGui["StatusCtrl"]
     HelpControls[statusLabel.Hwnd] := "Shows whether the program is ready, listening for a new key, or has completed a keybind change or reset."
     BannerDynamicControls.Push(statusLabel)
-
     y += 30
 
-    tooltipsChk := RebindGui.AddCheckbox("x" (padding + 20) " y" y " w110", "Tooltips On?")
+    checkboxGap := 10
+    checkboxW := Floor((contentW - checkboxGap) / 2)
+    checkboxRightX := padding + checkboxW + checkboxGap
+
+    tooltipsChk := RebindGui.AddCheckbox("x" padding " y" y " w" checkboxW, "Tooltips On?")
     tooltipsChk.Value := TooltipsEnabled ? 1 : 0
     tooltipsChk.OnEvent("Click", ToggleTooltipsEnabled)
-    HelpControls[tooltipsChk.Hwnd] := "Turn hotkey status notifications on or off. GUI hover explanations are controlled separately by UI Tooltips On?."
+    HelpControls[tooltipsChk.Hwnd] := "Turn hotkey status notifications on or off."
     BannerDynamicControls.Push(tooltipsChk)
+
+    uiTooltipsChk := RebindGui.AddCheckbox("x" checkboxRightX " y" y " w" checkboxW, "UI Tooltips On?")
+    uiTooltipsChk.Value := UiTooltipsEnabled ? 1 : 0
+    uiTooltipsChk.OnEvent("Click", ToggleUiTooltipsEnabled)
+    HelpControls[uiTooltipsChk.Hwnd] := "Turn GUI hover explanations on or off independently from hotkey status notifications."
+    BannerDynamicControls.Push(uiTooltipsChk)
+    y += 26
+
+    launchMinimizedChk := RebindGui.AddCheckbox("x" padding " y" y " w" checkboxW, "Launch Minimized?")
+    launchMinimizedChk.Value := LaunchMinimized ? 1 : 0
+    launchMinimizedChk.OnEvent("Click", ToggleLaunchMinimized)
+    HelpControls[launchMinimizedChk.Hwnd] := "Start the autoclicker hidden in the system tray."
+    BannerDynamicControls.Push(launchMinimizedChk)
+
+    ChangeOutputKeysCheckbox := RebindGui.AddCheckbox("x" checkboxRightX " y" y " w" checkboxW, "Change Output Keys?")
+    ChangeOutputKeysCheckbox.Value := ChangeOutputKeys ? 1 : 0
+    ChangeOutputKeysCheckbox.OnEvent("Click", ToggleChangeOutputKeys)
+    HelpControls[ChangeOutputKeysCheckbox.Hwnd] := "Show or hide controls for changing the keyboard keys sent to Foxhole. Useful for AZERTY keyboards and other custom keyboard layouts. Disabled by default to keep the interface simple."
+    BannerDynamicControls.Push(ChangeOutputKeysCheckbox)
+    y += 32
 
     BannerDropDown := ""
     if AvailableBanners.Length > 0
     {
-        bannerLabel := RebindGui.AddText("x" (padding + 135) " y" (y + 4) " w50 h20 +Right", "Banner:")
+        bannerLabel := RebindGui.AddText("x" padding " y" (y + 4) " w55 h20", "Banner:")
         BannerDynamicControls.Push(bannerLabel)
-
         bannerChoices := ["Disabled", "Random", "Random Cycle"]
         selectedChoice := 3
-
         if StrLower(BannerSelection) = "disabled"
             selectedChoice := 1
         else if StrLower(BannerSelection) = "random"
             selectedChoice := 2
         else if StrLower(BannerSelection) = "random cycle"
             selectedChoice := 3
-
         for index, banner in AvailableBanners
         {
             bannerChoices.Push(banner.displayName)
             if StrLower(BannerSelection) = StrLower(banner.fileName)
                 selectedChoice := index + 3
         }
-
-        BannerDropDown := RebindGui.AddDropDownList("x" (padding + 190) " y" (y - 2) " w170", bannerChoices)
+        BannerDropDown := RebindGui.AddDropDownList("x" (padding + 60) " y" (y - 2) " w" (contentW - 60), bannerChoices)
         BannerDropDown.Choose(selectedChoice)
         BannerDropDown.OnEvent("Change", AutoClickerBannerSelectionChanged)
-        HelpControls[BannerDropDown.Hwnd] := "Disable the banner, choose Random for a different banner each startup, choose Random Cycle to change it every 10 seconds, or select a named banner to always use it."
+        HelpControls[BannerDropDown.Hwnd] := "Disable the banner, choose Random for a different banner each startup, choose Random Cycle to change it every 10 seconds, or select a named banner."
         BannerDynamicControls.Push(BannerDropDown)
+        y += 30
     }
 
-    y += 30
-
-    uiTooltipsChk := RebindGui.AddCheckbox("x" (padding + 20) " y" y " w145", "UI Tooltips On?")
-    uiTooltipsChk.Value := UiTooltipsEnabled ? 1 : 0
-    uiTooltipsChk.OnEvent("Click", ToggleUiTooltipsEnabled)
-    HelpControls[uiTooltipsChk.Hwnd] := "Turn GUI hover explanations on or off independently from hotkey status notifications."
-    BannerDynamicControls.Push(uiTooltipsChk)
-
-    launchMinimizedChk := RebindGui.AddCheckbox("x" (padding + 205) " y" y " w155", "Launch Minimized?")
-    launchMinimizedChk.Value := LaunchMinimized ? 1 : 0
-    launchMinimizedChk.OnEvent("Click", ToggleLaunchMinimized)
-    HelpControls[launchMinimizedChk.Hwnd] := "Start the autoclicker hidden in the system tray. The tray icon, timers, and hotkeys remain active."
-    BannerDynamicControls.Push(launchMinimizedChk)
-
-    y += 30
-
-    resetAllBtn := RebindGui.AddButton("x" padding " y" y " w335 h30", "Reset All to Defaults")
+    settingsW := 40
+    resetAllBtn := RebindGui.AddButton("x" padding " y" y " w" (contentW - settingsW - 5) " h30", "Reset All to Defaults")
     resetAllBtn.OnEvent("Click", ResetAllToDefaults)
-    HelpControls[resetAllBtn.Hwnd] := "Restore every action to its original hotkey. This also restores the default Auto-Clicker and Train Slow timing settings."
+    HelpControls[resetAllBtn.Hwnd] := "Restore every action to its original activation hotkey and output key, plus timing defaults."
     BannerDynamicControls.Push(resetAllBtn)
 
-    settingsBtn := RebindGui.AddButton("x" (padding + 340) " y" y " w40 h30", "⛭")
+    settingsBtn := RebindGui.AddButton("x" (padding + contentW - settingsW) " y" y " w" settingsW " h30", "⛭")
     settingsBtn.SetFont("s12", "Segoe UI Symbol")
     settingsBtn.OnEvent("Click", OpenSettingsFile)
-    HelpControls[settingsBtn.Hwnd] := "Open the autoclicker settings file. Advanced users can inspect saved keybinds, timing values, tooltip state, click position, and banner choice."
+    HelpControls[settingsBtn.Hwnd] := "Open the autoclicker settings file."
     BannerDynamicControls.Push(settingsBtn)
-
     y += 40
 
     closeGuiBtn := RebindGui.AddButton("x" padding " y" y " w" contentW " h30", "Close GUI")
     closeGuiBtn.OnEvent("Click", (*) => RebindGui.Hide())
-    HelpControls[closeGuiBtn.Hwnd] := "Hide this window while keeping the autoclicker and all configured hotkeys running. Reopen it from the tray icon."
+    HelpControls[closeGuiBtn.Hwnd] := "Hide this window while keeping the autoclicker and configured hotkeys running."
     BannerDynamicControls.Push(closeGuiBtn)
-
     y += 40
 
     exitBtn := RebindGui.AddButton("x" padding " y" y " w" contentW " h30", "Exit Autoclicker")
     exitBtn.OnEvent("Click", (*) => ExitApp())
-    HelpControls[exitBtn.Hwnd] := "Completely close the autoclicker and unregister all of its hotkeys."
+    HelpControls[exitBtn.Hwnd] := "Completely close the autoclicker and unregister all hotkeys."
     BannerDynamicControls.Push(exitBtn)
-
     y += 42
 
-    footerText := RebindGui.AddText("x" padding " y" y " w" contentW " h36 Center", "This is an unofficial fan-made tool. Banner artwork is property of Siege Camp.")
+    footerText := RebindGui.AddText("x" padding " y" y " w" contentW " h30 Center", "This is an unofficial fan-made tool. Banner artwork is property of Siege Camp.")
     footerText.SetFont("s8", "Segoe UI")
     HelpControls[footerText.Hwnd] := "This project is an unofficial community tool and is not affiliated with Siege Camp."
     BannerDynamicControls.Push(footerText)
+    y += 27
+
+    ; Link controls do not consistently honor the Center style on every Windows theme.
+    ; Create the link at its natural width, then center that actual width explicitly.
+    githubLink := RebindGui.Add("Link", "x" padding " y" y " h18", '<a href="https://github.com/Tommythebold/Foxhole-AutoClicker/releases">GitHub</a>')
+    githubLink.SetFont("s8", "Segoe UI")
+    githubLink.GetPos(, , &githubLinkW)
+    githubLink.Move(padding + Floor((contentW - githubLinkW) / 2), y)
+    HelpControls[githubLink.Hwnd] := "Open the Foxhole AutoClicker releases page on GitHub."
+    BannerDynamicControls.Push(githubLink)
 
     footerBottomMargin := 8
-    contentHeightCurrentLayout := y + 36 + footerBottomMargin
+    contentHeightCurrentLayout := y + 18 + footerBottomMargin
     BannerGuiHeightVisible := BannerVisible ? contentHeightCurrentLayout : contentHeightCurrentLayout + BannerShift
     BannerGuiHeightHidden := BannerGuiHeightVisible - BannerShift
 
@@ -735,9 +777,9 @@ BuildGui()
 
     RebindGui.OnEvent("Close", (*) => ExitApp())
     RebindGui.OnEvent("Escape", HandleRebindGuiEscape)
-
     initialGuiHeight := BannerVisible ? BannerGuiHeightVisible : BannerGuiHeightHidden
     RebindGui.Show("w" winW " h" initialGuiHeight)
+    ApplyUpdateState()
     SetTimer(TrackHelpHover, 50)
     SetTimer(RotateTopContent, 10000)
 }
@@ -780,7 +822,7 @@ MakeRebindHandler(actionName)
 
     ButtonHandler(ctrlObj, info)
     {
-        StartListening(actionName, ctrlObj)
+        StartHotkeyListening(actionName, ctrlObj)
     }
 }
 
@@ -820,9 +862,9 @@ global ModifierKeyDefs := [
     { symbol: "#", keys: ["LWin", "RWin"] }
 ]
 
-StartListening(actionName, btnCtrl)
+StartHotkeyListening(actionName, btnCtrl)
 {
-    global ListeningForAction, StatusCtrl, PollKeyList
+    global ListeningForAction, ListeningMode, StatusCtrl, PollKeyList
 
     if (PollKeyList.Length = 0)
         InitPollKeyList()
@@ -830,6 +872,7 @@ StartListening(actionName, btnCtrl)
     PauseAllHotkeys()
 
     ListeningForAction := actionName
+    ListeningMode := "Hotkey"
     btnCtrl.Text := "Press any key..."
     StatusCtrl.Text := "Listening for new key for '" actionName "'... (Esc to cancel)"
 
@@ -857,6 +900,101 @@ StartListening(actionName, btnCtrl)
             }
         }
     }
+}
+
+MakeOutputKeyHandler(actionName)
+{
+    return OutputButtonHandler
+
+    OutputButtonHandler(ctrlObj, info)
+    {
+        StartOutputKeyListening(actionName, ctrlObj)
+    }
+}
+
+StartOutputKeyListening(actionName, btnCtrl)
+{
+    global ListeningForAction, ListeningMode, StatusCtrl
+
+    PauseAllHotkeys()
+    ListeningForAction := actionName
+    ListeningMode := "OutputKey"
+    btnCtrl.Text := "Press..."
+    StatusCtrl.Text := "Listening for output key for '" actionName "'... (Esc to cancel)"
+
+    BeginOutputKeyCapture(actionName, btnCtrl)
+}
+
+BeginOutputKeyCapture(actionName, btnCtrl)
+{
+    global OutputCaptureHook, ListeningForAction, ListeningMode
+
+    if (ListeningForAction != actionName || ListeningMode != "OutputKey")
+        return
+
+    ; Suppress the captured key so it never reaches the focused GUI button.
+    ; This prevents the standard Windows invalid-key notification sound.
+    OutputCaptureHook := InputHook("L0")
+    OutputCaptureHook.KeyOpt("{All}", "ES")
+    OutputCaptureHook.OnEnd := (*) => HandleOutputKeyCaptureEnd(actionName, btnCtrl)
+    OutputCaptureHook.Start()
+}
+
+HandleOutputKeyCaptureEnd(actionName, btnCtrl)
+{
+    global OutputCaptureHook, ListeningForAction, ListeningMode
+
+    if (ListeningForAction != actionName || ListeningMode != "OutputKey")
+        return
+
+    keyName := OutputCaptureHook.EndKey
+    OutputCaptureHook := ""
+
+    if (keyName = "")
+    {
+        BeginOutputKeyCapture(actionName, btnCtrl)
+        return
+    }
+
+    if IsModifierKeyName(keyName)
+    {
+        KeyWait(keyName)
+        BeginOutputKeyCapture(actionName, btnCtrl)
+        return
+    }
+
+    FinishOutputKeyListening(actionName, btnCtrl, keyName)
+}
+
+FinishOutputKeyListening(actionName, btnCtrl, keyName)
+{
+    global ListeningForAction, ListeningMode, StatusCtrl, ActionLabels, CurrentOutputKeys
+
+    ListeningForAction := ""
+    ListeningMode := ""
+
+    if (keyName = "Escape")
+    {
+        StatusCtrl.Text := "Output-key change cancelled."
+        btnCtrl.Text := DisplayNameForOutputKey(CurrentOutputKeys[actionName])
+        ResumeAllHotkeys()
+        return
+    }
+
+    if !IsValidOutputKey(keyName)
+    {
+        StatusCtrl.Text := "That key cannot be sent in the background. Try another keyboard key."
+        btnCtrl.Text := DisplayNameForOutputKey(CurrentOutputKeys[actionName])
+        ResumeAllHotkeys()
+        return
+    }
+
+    StopOutputAction(actionName)
+    CurrentOutputKeys[actionName] := keyName
+    SaveOutputKey(actionName, keyName)
+    btnCtrl.Text := DisplayNameForOutputKey(keyName)
+    StatusCtrl.Text := "'" ActionLabels[actionName] "' now sends " DisplayNameForOutputKey(keyName) "."
+    ResumeAllHotkeys()
 }
 
 BuildHeldModifierPrefix()
@@ -894,14 +1032,15 @@ WaitForModifierRelease()
 
 FinishListening(actionName, btnCtrl, modPrefix, keyName)
 {
-    global ListeningForAction, StatusCtrl, ActionLabels
+    global ListeningForAction, ListeningMode, StatusCtrl, ActionLabels
 
     ListeningForAction := ""
+    ListeningMode := ""
 
     if (keyName = "Escape" && modPrefix = "")
     {
         StatusCtrl.Text := "Rebind cancelled."
-        btnCtrl.Text := "Rebind: " CurrentKeysGet(actionName)
+        btnCtrl.Text := DisplayNameForHotkeyString(CurrentKeysGet(actionName))
         ResumeAllHotkeys()
         return
     }
@@ -909,7 +1048,7 @@ FinishListening(actionName, btnCtrl, modPrefix, keyName)
     if (IsModifierKeyName(keyName) && modPrefix = "")
     {
         StatusCtrl.Text := "Please hold a modifier and press a non-modifier key."
-        btnCtrl.Text := "Rebind: " CurrentKeysGet(actionName)
+        btnCtrl.Text := DisplayNameForHotkeyString(CurrentKeysGet(actionName))
         ResumeAllHotkeys()
         return
     }
@@ -920,12 +1059,12 @@ FinishListening(actionName, btnCtrl, modPrefix, keyName)
 
     if (success)
     {
-        btnCtrl.Text := "Rebind: " FormatKeyDisplay(modPrefix, keyName)
+        btnCtrl.Text := FormatKeyDisplay(modPrefix, keyName)
         StatusCtrl.Text := "'" ActionLabels[actionName] "' is now bound to " FormatKeyDisplay(modPrefix, keyName) "."
     }
     else
     {
-        btnCtrl.Text := "Rebind: " CurrentKeysGet(actionName)
+        btnCtrl.Text := DisplayNameForHotkeyString(CurrentKeysGet(actionName))
         StatusCtrl.Text := "Failed to bind " FormatKeyDisplay(modPrefix, keyName) ". Try a different key."
     }
 
@@ -958,6 +1097,41 @@ IsModifierKeyName(keyName)
         if (keyName = m)
             return true
     return false
+}
+
+HasOutputKey(actionName)
+{
+    global DefaultOutputKeys
+    return DefaultOutputKeys.Has(actionName)
+}
+
+IsMouseKeyName(keyName)
+{
+    return keyName = "MButton" || keyName = "XButton1" || keyName = "XButton2"
+}
+
+IsValidOutputKey(keyName)
+{
+    if keyName = "" || keyName = "Escape" || IsModifierKeyName(keyName) || IsMouseKeyName(keyName)
+        return false
+    try
+    {
+        vk := GetKeyVK(keyName)
+        sc := GetKeySC(keyName)
+        return vk > 0 && sc > 0
+    }
+    catch
+        return false
+}
+
+DisplayNameForOutputKey(keyName)
+{
+    ; Display single-letter output bindings in uppercase without changing the
+    ; stored key name used by GetKeyVK/GetKeySC and the background send logic.
+    if RegExMatch(keyName, "i)^[a-z]$")
+        return StrUpper(keyName)
+
+    return keyName = "Space" ? "Space" : keyName
 }
 
 DisplayNameForHotkeyString(hotkeyStr)
@@ -1020,16 +1194,59 @@ ToggleLaunchMinimized(ctrlObj, info)
     SaveLaunchMinimized(LaunchMinimized)
 }
 
+ToggleChangeOutputKeys(ctrlObj, info)
+{
+    global ChangeOutputKeys, RebindGui, ListeningForAction
+
+    if ListeningForAction != ""
+    {
+        ctrlObj.Value := ChangeOutputKeys ? 1 : 0
+        return
+    }
+
+    ChangeOutputKeys := ctrlObj.Value ? true : false
+    SaveChangeOutputKeys(ChangeOutputKeys)
+
+    oldGui := RebindGui
+    SetTimer(() => RebuildGuiForOutputKeyMode(oldGui), -1)
+}
+
+RebuildGuiForOutputKeyMode(oldGui)
+{
+    global RebindGui
+
+    try oldGui.Destroy()
+    BuildGui()
+}
+
 ResetAllToDefaults(*)
 {
-    global ActionNames, DefaultKeys, RebindButtons, StatusCtrl, AutoClickInterval, AutoClickDefaultInterval, AutoClickActive, AutoClickPaused
+    global ActionNames, DefaultKeys, RebindButtons, OutputActionNames, DefaultOutputKeys, CurrentOutputKeys, OutputKeyButtons
+    global StatusCtrl, AutoClickInterval, AutoClickDefaultInterval, AutoClickPaused, TrainSlowInterval, TrainSlowDefaultInterval
+
+    for actionName in OutputActionNames
+        StopOutputAction(actionName)
 
     for actionName in ActionNames
     {
         RebindAction(actionName, DefaultKeys[actionName])
-        RebindButtons[actionName].Text := "Rebind: " DisplayNameForHotkeyString(DefaultKeys[actionName])
+        RebindButtons[actionName].Text := DisplayNameForHotkeyString(DefaultKeys[actionName])
     }
-    StatusCtrl.Text := "All keybinds reset to defaults."
+
+    for actionName in OutputActionNames
+    {
+        CurrentOutputKeys[actionName] := DefaultOutputKeys[actionName]
+        SaveOutputKey(actionName, DefaultOutputKeys[actionName])
+        if OutputKeyButtons.Has(actionName)
+            OutputKeyButtons[actionName].Text := DisplayNameForOutputKey(DefaultOutputKeys[actionName])
+    }
+
+    AutoClickInterval := AutoClickDefaultInterval
+    AutoClickPaused := false
+    SaveAutoClickInterval(AutoClickInterval)
+    TrainSlowInterval := TrainSlowDefaultInterval
+    SaveTrainSlowInterval(TrainSlowInterval)
+    StatusCtrl.Text := "All activation hotkeys, output keys, and timing values reset to defaults."
 }
 
 MakeResetHandler(actionName)
@@ -1044,16 +1261,31 @@ MakeResetHandler(actionName)
 
 ResetSingleToDefault(actionName)
 {
-    global DefaultKeys, RebindButtons, ActionLabels, StatusCtrl, TrainSlowInterval, TrainSlowDefaultInterval, AutoClickInterval, AutoClickDefaultInterval, AutoClickActive, AutoClickPaused
+    global DefaultKeys, RebindButtons, ActionLabels, StatusCtrl, TrainSlowInterval, TrainSlowDefaultInterval
+    global AutoClickInterval, AutoClickDefaultInterval, AutoClickActive, AutoClickPaused
+    global DefaultOutputKeys, CurrentOutputKeys, OutputKeyButtons
+
+    if HasOutputKey(actionName)
+        StopOutputAction(actionName)
 
     RebindAction(actionName, DefaultKeys[actionName])
-    RebindButtons[actionName].Text := "Rebind: " DisplayNameForHotkeyString(DefaultKeys[actionName])
+    RebindButtons[actionName].Text := DisplayNameForHotkeyString(DefaultKeys[actionName])
+
+    outputSummary := ""
+    if HasOutputKey(actionName)
+    {
+        CurrentOutputKeys[actionName] := DefaultOutputKeys[actionName]
+        SaveOutputKey(actionName, DefaultOutputKeys[actionName])
+        if OutputKeyButtons.Has(actionName)
+            OutputKeyButtons[actionName].Text := DisplayNameForOutputKey(DefaultOutputKeys[actionName])
+        outputSummary := " and sends " DisplayNameForOutputKey(DefaultOutputKeys[actionName])
+    }
 
     if (actionName = "TrainSlow")
     {
         TrainSlowInterval := TrainSlowDefaultInterval
         SaveTrainSlowInterval(TrainSlowInterval)
-        StatusCtrl.Text := "'Train Slow' reset to F9 with a 300 ms interval."
+        StatusCtrl.Text := "'Train Slow' reset to F9, sends W, with a 300 ms interval."
     }
     else if (actionName = "AutoClick")
     {
@@ -1065,13 +1297,13 @@ ResetSingleToDefault(actionName)
         StatusCtrl.Text := "'Auto-Clicker' reset to F2 with a 50 ms interval."
     }
     else
-        StatusCtrl.Text := "'" ActionLabels[actionName] "' reset to " DisplayNameForHotkeyString(DefaultKeys[actionName]) "."
+        StatusCtrl.Text := "'" ActionLabels[actionName] "' reset to " DisplayNameForHotkeyString(DefaultKeys[actionName]) outputSummary "."
 }
 
 
 CheckForUpdate()
 {
-    global AppVersion, GitHubLatestReleaseApi, RebindGui, UpdateWindowTitle
+    global AppVersion, GitHubLatestReleaseApi, LatestVersion, UpdateAvailable, UpdateCheckComplete
 
     try
     {
@@ -1079,25 +1311,51 @@ CheckForUpdate()
         request.SetTimeouts(3000, 3000, 5000, 5000)
         request.Open("GET", GitHubLatestReleaseApi, false)
         request.SetRequestHeader("Accept", "application/vnd.github+json")
-        request.SetRequestHeader("User-Agent", "Foxhole-Autoclicker-" AppVersion)
+        request.SetRequestHeader("User-Agent", "Foxhole-Autoclicker/" AppVersion)
         request.SetRequestHeader("X-GitHub-Api-Version", "2022-11-28")
         request.Send()
 
         if request.Status != 200
             return
 
+        ; GitHub's /releases/latest endpoint returns the latest published,
+        ; non-draft, non-prerelease release. Tags alone are not releases.
         if !RegExMatch(request.ResponseText, '"tag_name"\s*:\s*"([^"]+)"', &tagMatch)
             return
 
-        latestVersion := NormalizeVersion(tagMatch[1])
-        if latestVersion = ""
+        checkedVersion := NormalizeVersion(tagMatch[1])
+        if checkedVersion = ""
             return
 
-        if IsVersionNewer(latestVersion, AppVersion)
-            RebindGui.Title := UpdateWindowTitle
+        LatestVersion := checkedVersion
+        UpdateAvailable := IsVersionNewer(LatestVersion, AppVersion)
+        UpdateCheckComplete := true
+        ApplyUpdateState()
     }
     catch
     {
+        ; Network failures are intentionally silent. The recurring timer will
+        ; try again later without interrupting normal autoclicker operation.
+    }
+}
+
+ApplyUpdateState()
+{
+    global RebindGui, NormalWindowTitle, UpdateWindowTitle, UpdateAvailable, LatestVersion, StatusCtrl
+
+    if !IsObject(RebindGui)
+        return
+
+    try
+    {
+        if UpdateAvailable
+        {
+            RebindGui.Title := UpdateWindowTitle " (v" LatestVersion ")"
+            if IsObject(StatusCtrl)
+                StatusCtrl.Text := "Update available: version " LatestVersion "."
+        }
+        else
+            RebindGui.Title := NormalWindowTitle
     }
 }
 
@@ -1254,150 +1512,191 @@ MakeLParam(x, y)
     return (x & 0xFFFF) | ((y & 0xFFFF) << 16)
 }
 
+ReleaseAllOutputKeys(*)
+{
+    global OutputActionNames
+    for actionName in OutputActionNames
+        StopOutputAction(actionName)
+}
+
+BuildKeyboardLParam(scanCode, isKeyUp := false, isExtended := false)
+{
+    lParam := 1 | ((scanCode & 0xFF) << 16)
+    if isExtended
+        lParam |= (1 << 24)
+    if isKeyUp
+        lParam |= (1 << 30) | (1 << 31)
+    return lParam
+}
+
+IsExtendedOutputKey(keyName)
+{
+    static extendedKeys := Map(
+        "Insert", true, "Delete", true, "Home", true, "End", true, "PgUp", true, "PgDn", true,
+        "Up", true, "Down", true, "Left", true, "Right", true, "RControl", true, "RAlt", true,
+        "NumpadDiv", true, "NumpadEnter", true, "LWin", true, "RWin", true, "AppsKey", true
+    )
+    return extendedKeys.Has(keyName)
+}
+
+PostBackgroundKeyDown(keyName)
+{
+    global TargetWindow
+    targetHwnd := WinExist(TargetWindow)
+    if !targetHwnd || !IsValidOutputKey(keyName)
+        return false
+    vk := GetKeyVK(keyName)
+    sc := GetKeySC(keyName)
+    PostMessage(0x0100, vk, BuildKeyboardLParam(sc, false, IsExtendedOutputKey(keyName)), , "ahk_id " targetHwnd)
+    return true
+}
+
+PostBackgroundKeyUp(keyName)
+{
+    global TargetWindow
+    targetHwnd := WinExist(TargetWindow)
+    if !targetHwnd || !IsValidOutputKey(keyName)
+        return false
+    vk := GetKeyVK(keyName)
+    sc := GetKeySC(keyName)
+    PostMessage(0x0101, vk, BuildKeyboardLParam(sc, true, IsExtendedOutputKey(keyName)), , "ahk_id " targetHwnd)
+    return true
+}
+
+PostBackgroundKeyPress(keyName)
+{
+    if PostBackgroundKeyDown(keyName)
+        PostBackgroundKeyUp(keyName)
+}
+
+StopOutputAction(actionName)
+{
+    global AutoWalkActive, AutoReverseActive, VSpamActive, TrainSlowActive, CurrentOutputKeys
+
+    if actionName = "AutoWalk"
+    {
+        SetTimer(SendBackgroundForward, 0)
+        PostBackgroundKeyUp(CurrentOutputKeys["AutoWalk"])
+        AutoWalkActive := false
+    }
+    else if actionName = "AutoReverse"
+    {
+        SetTimer(SendBackgroundReverse, 0)
+        PostBackgroundKeyUp(CurrentOutputKeys["AutoReverse"])
+        AutoReverseActive := false
+    }
+    else if actionName = "VSpam"
+    {
+        SetTimer(SendBackgroundSpamKey, 0)
+        PostBackgroundKeyUp(CurrentOutputKeys["VSpam"])
+        VSpamActive := false
+    }
+    else if actionName = "TrainSlow"
+    {
+        SetTimer(SendBackgroundTrainSlow, 0)
+        PostBackgroundKeyUp(CurrentOutputKeys["TrainSlow"])
+        TrainSlowActive := false
+    }
+}
+
 Hotkey_AutoWalk(*)
 {
-    global AutoWalkActive, AutoReverseActive, TrainSlowActive, TargetWindow
-
+    global AutoWalkActive, CurrentOutputKeys, TargetWindow
     if !WinExist(TargetWindow)
     {
         ShowTooltip("Foxhole window not found!", 2000)
         return
     }
 
-    if (AutoReverseActive)
-    {
-        AutoReverseActive := false
-        SetTimer(SendBackgroundS, 0)
-        PostMessage(0x0101, 0x53, 0xC0530001, , TargetWindow)
-    }
-
-    if (TrainSlowActive)
-    {
-        TrainSlowActive := false
-        SetTimer(SendBackgroundTrainSlowW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
-    }
-
+    StopOutputAction("AutoReverse")
+    StopOutputAction("TrainSlow")
     AutoWalkActive := !AutoWalkActive
 
-    if (AutoWalkActive)
+    if AutoWalkActive
     {
-        ShowTooltip("FORWARD", 1500)
-        SetTimer(SendBackgroundW, 50)
+        ShowTooltip("FORWARD — holding " DisplayNameForOutputKey(CurrentOutputKeys["AutoWalk"]), 1500)
+        SendBackgroundForward()
+        SetTimer(SendBackgroundForward, 50)
     }
     else
     {
         ShowTooltip("Forward OFF", 1500)
-        SetTimer(SendBackgroundW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
+        StopOutputAction("AutoWalk")
     }
 }
 
-SendBackgroundW()
+SendBackgroundForward()
 {
-    global TargetWindow
-    if WinExist(TargetWindow)
-    {
-        PostMessage(0x0100, 0x57, 0x00570001, , TargetWindow)
-    }
+    global CurrentOutputKeys
+    PostBackgroundKeyDown(CurrentOutputKeys["AutoWalk"])
 }
 
 Hotkey_AutoReverse(*)
 {
-    global AutoWalkActive, AutoReverseActive, TrainSlowActive, TargetWindow
-
+    global AutoReverseActive, CurrentOutputKeys, TargetWindow
     if !WinExist(TargetWindow)
     {
         ShowTooltip("Foxhole window not found!", 2000)
         return
     }
 
-    if (AutoWalkActive)
-    {
-        AutoWalkActive := false
-        SetTimer(SendBackgroundW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
-    }
-
-    if (TrainSlowActive)
-    {
-        TrainSlowActive := false
-        SetTimer(SendBackgroundTrainSlowW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
-    }
-
+    StopOutputAction("AutoWalk")
+    StopOutputAction("TrainSlow")
     AutoReverseActive := !AutoReverseActive
 
-    if (AutoReverseActive)
+    if AutoReverseActive
     {
-        ShowTooltip("REVERSE", 1500)
-        SetTimer(SendBackgroundS, 50)
+        ShowTooltip("REVERSE — holding " DisplayNameForOutputKey(CurrentOutputKeys["AutoReverse"]), 1500)
+        SendBackgroundReverse()
+        SetTimer(SendBackgroundReverse, 50)
     }
     else
     {
         ShowTooltip("Reverse OFF", 1500)
-        SetTimer(SendBackgroundS, 0)
-        PostMessage(0x0101, 0x53, 0xC0530001, , TargetWindow)
+        StopOutputAction("AutoReverse")
     }
 }
 
-SendBackgroundS()
+SendBackgroundReverse()
 {
-    global TargetWindow
-    if WinExist(TargetWindow)
-    {
-        PostMessage(0x0100, 0x53, 0x00530001, , TargetWindow)
-    }
+    global CurrentOutputKeys
+    PostBackgroundKeyDown(CurrentOutputKeys["AutoReverse"])
 }
 
 Hotkey_TrainSlow(*)
 {
-    global TrainSlowActive, TrainSlowInterval, AutoWalkActive, AutoReverseActive, TargetWindow
-
+    global TrainSlowActive, TrainSlowInterval, CurrentOutputKeys, TargetWindow
     if !WinExist(TargetWindow)
     {
         ShowTooltip("Foxhole window not found!", 2000)
         return
     }
 
-    if (AutoWalkActive)
-    {
-        AutoWalkActive := false
-        SetTimer(SendBackgroundW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
-    }
-
-    if (AutoReverseActive)
-    {
-        AutoReverseActive := false
-        SetTimer(SendBackgroundS, 0)
-        PostMessage(0x0101, 0x53, 0xC0530001, , TargetWindow)
-    }
-
+    StopOutputAction("AutoWalk")
+    StopOutputAction("AutoReverse")
     TrainSlowActive := !TrainSlowActive
 
-    if (TrainSlowActive)
+    if TrainSlowActive
     {
-        ShowTooltip("Train Slow ON (Use Shift+Scroll)", 2500)
-        SendBackgroundTrainSlowW()
-        SetTimer(SendBackgroundTrainSlowW, TrainSlowInterval)
+        ShowTooltip("Train Slow ON — pressing " DisplayNameForOutputKey(CurrentOutputKeys["TrainSlow"]) " (Shift+Scroll)", 2500)
+        SendBackgroundTrainSlow()
+        SetTimer(SendBackgroundTrainSlow, TrainSlowInterval)
     }
     else
     {
         ShowTooltip("Train Slow OFF", 1500)
-        SetTimer(SendBackgroundTrainSlowW, 0)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
+        StopOutputAction("TrainSlow")
     }
 }
 
-SendBackgroundTrainSlowW()
+SendBackgroundTrainSlow()
 {
-    global TargetWindow, TrainSlowHoldDuration
-    if WinExist(TargetWindow)
+    global CurrentOutputKeys, TrainSlowHoldDuration
+    keyName := CurrentOutputKeys["TrainSlow"]
+    if PostBackgroundKeyDown(keyName)
     {
-        PostMessage(0x0100, 0x57, 0x00570001, , TargetWindow)
         Sleep(TrainSlowHoldDuration)
-        PostMessage(0x0101, 0x57, 0xC0570001, , TargetWindow)
+        PostBackgroundKeyUp(keyName)
     }
 }
 
@@ -1447,7 +1746,7 @@ AdjustTrainSlowInterval(change)
     global TrainSlowInterval
     TrainSlowInterval := Max(10, Min(3000, TrainSlowInterval + change))
     SaveTrainSlowInterval(TrainSlowInterval)
-    SetTimer(SendBackgroundTrainSlowW, TrainSlowInterval)
+    SetTimer(SendBackgroundTrainSlow, TrainSlowInterval)
     ShowTooltip("Train Slow interval: " TrainSlowInterval " ms", 1500)
 }
 
@@ -1546,7 +1845,7 @@ SendBackgroundRightHold()
 
 Hotkey_VSpam(*)
 {
-    global VSpamActive, TargetWindow
+    global VSpamActive, CurrentOutputKeys, TargetWindow
 
     if !WinExist(TargetWindow)
     {
@@ -1556,27 +1855,22 @@ Hotkey_VSpam(*)
 
     VSpamActive := !VSpamActive
 
-    if (VSpamActive)
+    if VSpamActive
     {
-        ShowTooltip("V Spam ON", 2500)
-        SendBackgroundV()
-        SetTimer(SendBackgroundV, 50)
+        ShowTooltip("Submit Large Item ON — pressing " DisplayNameForOutputKey(CurrentOutputKeys["VSpam"]), 2500)
+        SendBackgroundSpamKey()
+        SetTimer(SendBackgroundSpamKey, 50)
     }
     else
     {
-        ShowTooltip("V Spam OFF", 1500)
-        SetTimer(SendBackgroundV, 0)
-        PostMessage(0x0101, 0x56, 0xC0560001, , TargetWindow)
+        ShowTooltip("Submit Large Item OFF", 1500)
+        StopOutputAction("VSpam")
     }
 }
 
-SendBackgroundV()
+SendBackgroundSpamKey()
 {
-    global TargetWindow
-    if WinExist(TargetWindow)
-    {
-
-        PostMessage(0x0100, 0x56, 0x00560001, , TargetWindow)
-        PostMessage(0x0101, 0x56, 0xC0560001, , TargetWindow)
-    }
+    global CurrentOutputKeys
+    PostBackgroundKeyPress(CurrentOutputKeys["VSpam"])
 }
+
