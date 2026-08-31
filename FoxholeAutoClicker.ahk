@@ -1,14 +1,8 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-;@Ahk2Exe-SetMainIcon Bin\AutoClicker2Icon.ico
-;@Ahk2Exe-SetName Foxhole Autoclicker
-;@Ahk2Exe-SetDescription Foxhole Autoclicker 2.0
-;@Ahk2Exe-SetProductName Foxhole Autoclicker
-;@Ahk2Exe-SetVersion 2.0.2
-;@Ahk2Exe-SetProductVersion 2.0.2
 
-global AppVersion := "2.0.2"
+global AppVersion := "2.0.3"
 global NormalWindowTitle := "Foxhole Autoclicker " AppVersion
 global UpdateWindowTitle := NormalWindowTitle " - Update Available"
 global GitHubLatestReleaseApi := "https://api.github.com/repos/Tommythebold/Foxhole-AutoClicker/releases/latest"
@@ -79,7 +73,7 @@ global TopMessages := [
     "Rebind keys below. Hover over elements for info.",
     "Disable Epic Overlay/Launcher, blocks AutoHotKey.",
     "Contact Tommythebold on Discord for support.",
-    'View the project on <a href="https://github.com/Tommythebold/Foxhole-AutoClicker">Github</a>.'
+    'View the project on <a href="https://github.com/Tommythebold/Foxhole-AutoClicker/releases">Github</a>.'
 ]
 
 global ActionNames := ["AutoClick", "AutoWalk", "AutoReverse", "ClickHold", "RightHold", "VSpam", "TrainSlow"]
@@ -145,6 +139,10 @@ global HoveredHelpHwnd := 0
 global ListeningForAction := ""
 global ListeningMode := ""
 global StatusCtrl := ""
+global UpdateLinkControl := ""
+global UpdateLinkVisible := false
+global UpdateLinkShift := 24
+global UpdateDynamicControls := []
 global PollKeyList := []
 global OutputCaptureHook := ""
 global ChangeOutputKeysCheckbox := ""
@@ -313,15 +311,10 @@ RebindAction(actionName, newKey)
 
 InitializeAssetDirectory()
 {
-    ; When running the source script, keep using the project-local Bin folder.
     if !A_IsCompiled
         return A_ScriptDir "\Bin"
 
-    ; Compiled releases are self-contained. Ahk2Exe embeds these files, and
-    ; FileInstall restores them to a versioned per-user runtime directory.
-    ; This lets a downloaded standalone EXE display banners without requiring
-    ; users to separately download or preserve the project Bin folder.
-    runtimeDir := A_AppData "\FoxholeAutoClicker\2.0.2\Bin"
+    runtimeDir := A_AppData "\FoxholeAutoClicker\2.0.3\Bin"
 
     try DirCreate(runtimeDir)
     catch as e {
@@ -586,7 +579,7 @@ BuildGui()
     global CurrentBannerFile, BannerVisible, BannerShift, BannerSelection
     global BannerControlBaseY, BannerGuiHeightHidden, BannerGuiHeightVisible, BannerLayoutChanging
     global TopMessageControl, TopMessageIndex, TopMessages
-    global UpdateAvailable, LatestVersion
+    global UpdateAvailable, LatestVersion, UpdateLinkControl, UpdateLinkVisible, UpdateLinkShift, UpdateDynamicControls
 
     padding := 20
     contentW := ChangeOutputKeys ? 400 : 330
@@ -605,6 +598,7 @@ BuildGui()
     bannerGap := 15
     BannerShift := bannerHeight + bannerGap
     BannerDynamicControls := []
+    UpdateDynamicControls := []
     BannerControlBaseY := Map()
     BannerLayoutChanging := false
     RebindButtons := Map()
@@ -645,9 +639,19 @@ BuildGui()
         }
     }
 
+    UpdateLinkControl := RebindGui.Add("Link", "x" padding " y" y " w" contentW " h20 Center", '<a href="https://github.com/Tommythebold/Foxhole-AutoClicker/releases">Update Available</a>')
+    UpdateLinkControl.SetFont("s9 Bold", "Segoe UI")
+    HelpControls[UpdateLinkControl.Hwnd] := "Open the Foxhole AutoClicker GitHub page to download the latest release."
+    BannerDynamicControls.Push(UpdateLinkControl)
+    UpdateLinkVisible := UpdateAvailable
+    UpdateLinkControl.Visible := UpdateLinkVisible
+    if UpdateLinkVisible
+        y += UpdateLinkShift
+
     TopMessageIndex := 1
     TopMessageControl := RebindGui.Add("Link", "x" padding " y" y " w" contentW " h24 Center", TopMessages[TopMessageIndex])
     BannerDynamicControls.Push(TopMessageControl)
+    UpdateDynamicControls.Push(TopMessageControl)
     HelpControls[TopMessageControl.Hwnd] := "Cycles through setup guidance, support information, and the project link every 10 seconds."
 
     y += 28
@@ -665,6 +669,7 @@ BuildGui()
     {
         headerCtrl.SetFont("s8 Bold", "Segoe UI")
         BannerDynamicControls.Push(headerCtrl)
+        UpdateDynamicControls.Push(headerCtrl)
     }
     y += 25
 
@@ -674,12 +679,14 @@ BuildGui()
         labelCtrl := RebindGui.AddText("x" actionX " y" y " w" actionW " Right", label)
         HelpControls[labelCtrl.Hwnd] := ActionDescriptions[actionName]
         BannerDynamicControls.Push(labelCtrl)
+        UpdateDynamicControls.Push(labelCtrl)
 
         btn := RebindGui.AddButton("x" hotkeyX " y" (y - 4) " w" hotkeyW " h30", DisplayNameForHotkeyString(CurrentKeys[actionName]))
         btn.OnEvent("Click", MakeRebindHandler(actionName))
         RebindButtons[actionName] := btn
         HelpControls[btn.Hwnd] := "Click to assign the activation hotkey for " label ". Key combinations are supported; press Escape to cancel."
         BannerDynamicControls.Push(btn)
+        UpdateDynamicControls.Push(btn)
 
         if ChangeOutputKeys && HasOutputKey(actionName)
         {
@@ -688,6 +695,7 @@ BuildGui()
             OutputKeyButtons[actionName] := outputBtn
             HelpControls[outputBtn.Hwnd] := "Click to choose the single keyboard key that " label " sends to Foxhole. Press Escape to cancel."
             BannerDynamicControls.Push(outputBtn)
+            UpdateDynamicControls.Push(outputBtn)
         }
 
         resetBtn := RebindGui.AddButton("x" resetX " y" (y - 4) " w" resetW " h30", "Reset")
@@ -699,6 +707,7 @@ BuildGui()
         resetTip .= ". Auto-Clicker and Train Slow also restore timing defaults."
         HelpControls[resetBtn.Hwnd] := resetTip
         BannerDynamicControls.Push(resetBtn)
+        UpdateDynamicControls.Push(resetBtn)
         y += 40
     }
 
@@ -706,6 +715,7 @@ BuildGui()
     StatusCtrl := RebindGui["StatusCtrl"]
     HelpControls[statusLabel.Hwnd] := "Shows whether the program is ready, listening for a new key, or has completed a keybind change or reset."
     BannerDynamicControls.Push(statusLabel)
+    UpdateDynamicControls.Push(statusLabel)
     y += 30
 
     checkboxGap := 10
@@ -717,12 +727,14 @@ BuildGui()
     tooltipsChk.OnEvent("Click", ToggleTooltipsEnabled)
     HelpControls[tooltipsChk.Hwnd] := "Turn hotkey status notifications on or off."
     BannerDynamicControls.Push(tooltipsChk)
+    UpdateDynamicControls.Push(tooltipsChk)
 
     uiTooltipsChk := RebindGui.AddCheckbox("x" checkboxRightX " y" y " w" checkboxW, "UI Tooltips On?")
     uiTooltipsChk.Value := UiTooltipsEnabled ? 1 : 0
     uiTooltipsChk.OnEvent("Click", ToggleUiTooltipsEnabled)
     HelpControls[uiTooltipsChk.Hwnd] := "Turn GUI hover explanations on or off independently from hotkey status notifications."
     BannerDynamicControls.Push(uiTooltipsChk)
+    UpdateDynamicControls.Push(uiTooltipsChk)
     y += 26
 
     launchMinimizedChk := RebindGui.AddCheckbox("x" padding " y" y " w" checkboxW, "Launch Minimized?")
@@ -730,12 +742,14 @@ BuildGui()
     launchMinimizedChk.OnEvent("Click", ToggleLaunchMinimized)
     HelpControls[launchMinimizedChk.Hwnd] := "Start the autoclicker hidden in the system tray."
     BannerDynamicControls.Push(launchMinimizedChk)
+    UpdateDynamicControls.Push(launchMinimizedChk)
 
     ChangeOutputKeysCheckbox := RebindGui.AddCheckbox("x" checkboxRightX " y" y " w" checkboxW, "Change Output Keys?")
     ChangeOutputKeysCheckbox.Value := ChangeOutputKeys ? 1 : 0
     ChangeOutputKeysCheckbox.OnEvent("Click", ToggleChangeOutputKeys)
     HelpControls[ChangeOutputKeysCheckbox.Hwnd] := "Show or hide controls for changing the keyboard keys sent to Foxhole. Useful for AZERTY keyboards and other custom keyboard layouts. Disabled by default to keep the interface simple."
     BannerDynamicControls.Push(ChangeOutputKeysCheckbox)
+    UpdateDynamicControls.Push(ChangeOutputKeysCheckbox)
     y += 32
 
     BannerDropDown := ""
@@ -743,6 +757,7 @@ BuildGui()
     {
         bannerLabel := RebindGui.AddText("x" padding " y" (y + 4) " w55 h20", "Banner:")
         BannerDynamicControls.Push(bannerLabel)
+        UpdateDynamicControls.Push(bannerLabel)
         bannerChoices := ["Disabled", "Random", "Random Cycle"]
         selectedChoice := 3
         if StrLower(BannerSelection) = "disabled"
@@ -762,6 +777,7 @@ BuildGui()
         BannerDropDown.OnEvent("Change", AutoClickerBannerSelectionChanged)
         HelpControls[BannerDropDown.Hwnd] := "Disable the banner, choose Random for a different banner each startup, choose Random Cycle to change it every 10 seconds, or select a named banner."
         BannerDynamicControls.Push(BannerDropDown)
+        UpdateDynamicControls.Push(BannerDropDown)
         y += 30
     }
 
@@ -770,40 +786,44 @@ BuildGui()
     resetAllBtn.OnEvent("Click", ResetAllToDefaults)
     HelpControls[resetAllBtn.Hwnd] := "Restore every action to its original activation hotkey and output key, plus timing defaults."
     BannerDynamicControls.Push(resetAllBtn)
+    UpdateDynamicControls.Push(resetAllBtn)
 
     settingsBtn := RebindGui.AddButton("x" (padding + contentW - settingsW) " y" y " w" settingsW " h30", "⛭")
     settingsBtn.SetFont("s12", "Segoe UI Symbol")
     settingsBtn.OnEvent("Click", OpenSettingsFile)
     HelpControls[settingsBtn.Hwnd] := "Open the autoclicker settings file."
     BannerDynamicControls.Push(settingsBtn)
+    UpdateDynamicControls.Push(settingsBtn)
     y += 40
 
     closeGuiBtn := RebindGui.AddButton("x" padding " y" y " w" contentW " h30", "Close GUI")
     closeGuiBtn.OnEvent("Click", (*) => RebindGui.Hide())
     HelpControls[closeGuiBtn.Hwnd] := "Hide this window while keeping the autoclicker and configured hotkeys running."
     BannerDynamicControls.Push(closeGuiBtn)
+    UpdateDynamicControls.Push(closeGuiBtn)
     y += 40
 
     exitBtn := RebindGui.AddButton("x" padding " y" y " w" contentW " h30", "Exit Autoclicker")
     exitBtn.OnEvent("Click", (*) => ExitApp())
     HelpControls[exitBtn.Hwnd] := "Completely close the autoclicker and unregister all hotkeys."
     BannerDynamicControls.Push(exitBtn)
+    UpdateDynamicControls.Push(exitBtn)
     y += 42
 
     footerText := RebindGui.AddText("x" padding " y" y " w" contentW " h30 Center", "This is an unofficial fan-made tool. Banner artwork is property of Siege Camp.")
     footerText.SetFont("s8", "Segoe UI")
     HelpControls[footerText.Hwnd] := "This project is an unofficial community tool and is not affiliated with Siege Camp."
     BannerDynamicControls.Push(footerText)
+    UpdateDynamicControls.Push(footerText)
     y += 27
 
-    ; Link controls do not consistently honor the Center style on every Windows theme.
-    ; Create the link at its natural width, then center that actual width explicitly.
-    githubLink := RebindGui.Add("Link", "x" padding " y" y " h18", '<a href="https://github.com/Tommythebold/Foxhole-AutoClicker/releases">GitHub</a>')
+    githubLink := RebindGui.Add("Link", "x" padding " y" y " h18", '<a href="https://github.com/Tommythebold/Foxhole-AutoClicker/releases/releases">GitHub</a>')
     githubLink.SetFont("s8", "Segoe UI")
     githubLink.GetPos(, , &githubLinkW)
     githubLink.Move(padding + Floor((contentW - githubLinkW) / 2), y)
     HelpControls[githubLink.Hwnd] := "Open the Foxhole AutoClicker releases page on GitHub."
     BannerDynamicControls.Push(githubLink)
+    UpdateDynamicControls.Push(githubLink)
 
     footerBottomMargin := 8
     contentHeightCurrentLayout := y + 18 + footerBottomMargin
@@ -976,8 +996,6 @@ BeginOutputKeyCapture(actionName, btnCtrl)
     if (ListeningForAction != actionName || ListeningMode != "OutputKey")
         return
 
-    ; Suppress the captured key so it never reaches the focused GUI button.
-    ; This prevents the standard Windows invalid-key notification sound.
     OutputCaptureHook := InputHook("L0")
     OutputCaptureHook.KeyOpt("{All}", "ES")
     OutputCaptureHook.OnEnd := (*) => HandleOutputKeyCaptureEnd(actionName, btnCtrl)
@@ -998,7 +1016,7 @@ HandleOutputKeyCaptureEnd(actionName, btnCtrl)
     {
         BeginOutputKeyCapture(actionName, btnCtrl)
         return
-    }
+}
 
     if IsModifierKeyName(keyName)
     {
@@ -1170,8 +1188,6 @@ IsValidOutputKey(keyName)
 
 DisplayNameForOutputKey(keyName)
 {
-    ; Display single-letter output bindings in uppercase without changing the
-    ; stored key name used by GetKeyVK/GetKeySC and the background send logic.
     if RegExMatch(keyName, "i)^[a-z]$")
         return StrUpper(keyName)
 
@@ -1362,8 +1378,6 @@ CheckForUpdate()
         if request.Status != 200
             return
 
-        ; GitHub's /releases/latest endpoint returns the latest published,
-        ; non-draft, non-prerelease release. Tags alone are not releases.
         if !RegExMatch(request.ResponseText, '"tag_name"\s*:\s*"([^"]+)"', &tagMatch)
             return
 
@@ -1378,28 +1392,72 @@ CheckForUpdate()
     }
     catch
     {
-        ; Network failures are intentionally silent. The recurring timer will
-        ; try again later without interrupting normal autoclicker operation.
     }
 }
 
 ApplyUpdateState()
 {
-    global RebindGui, NormalWindowTitle, UpdateWindowTitle, UpdateAvailable, LatestVersion, StatusCtrl
+    global RebindGui, NormalWindowTitle, UpdateWindowTitle, UpdateAvailable
 
     if !IsObject(RebindGui)
         return
 
     try
     {
-        if UpdateAvailable
+        RebindGui.Title := UpdateAvailable ? UpdateWindowTitle : NormalWindowTitle
+        SetUpdateLinkVisibility(UpdateAvailable)
+    }
+}
+
+SetUpdateLinkVisibility(visible)
+{
+    global RebindGui, UpdateLinkControl, UpdateLinkVisible, UpdateLinkShift, UpdateDynamicControls
+    global BannerControlBaseY, BannerGuiHeightHidden, BannerGuiHeightVisible, BannerLayoutChanging, BannerVisible
+
+    visible := visible ? true : false
+    if !IsObject(RebindGui) || !IsObject(UpdateLinkControl) || visible = UpdateLinkVisible || BannerLayoutChanging
+        return
+
+    BannerLayoutChanging := true
+    guiHwnd := RebindGui.Hwnd
+    delta := visible ? UpdateLinkShift : -UpdateLinkShift
+
+    try
+    {
+        if DllCall("IsWindow", "ptr", guiHwnd, "int")
+            DllCall("SendMessage", "ptr", guiHwnd, "uint", 0x000B, "uptr", 0, "ptr", 0)
+
+        if visible
+            UpdateLinkControl.Visible := true
+
+        for ctrl in UpdateDynamicControls
         {
-            RebindGui.Title := UpdateWindowTitle " (v" LatestVersion ")"
-            if IsObject(StatusCtrl)
-                StatusCtrl.Text := "Update available: version " LatestVersion "."
+            try
+            {
+                ctrl.GetPos(&ctrlX, &ctrlY)
+                ctrl.Move(, ctrlY + delta)
+                if BannerControlBaseY.Has(ctrl.Hwnd)
+                    BannerControlBaseY[ctrl.Hwnd] += delta
+            }
         }
-        else
-            RebindGui.Title := NormalWindowTitle
+
+        BannerGuiHeightHidden += delta
+        BannerGuiHeightVisible += delta
+        SetGuiClientHeight(RebindGui, BannerVisible ? BannerGuiHeightVisible : BannerGuiHeightHidden)
+
+        if !visible
+            UpdateLinkControl.Visible := false
+
+        UpdateLinkVisible := visible
+    }
+    finally
+    {
+        if DllCall("IsWindow", "ptr", guiHwnd, "int")
+        {
+            DllCall("SendMessage", "ptr", guiHwnd, "uint", 0x000B, "uptr", 1, "ptr", 0)
+            DllCall("RedrawWindow", "ptr", guiHwnd, "ptr", 0, "ptr", 0, "uint", 0x185)
+        }
+        BannerLayoutChanging := false
     }
 }
 
@@ -1827,8 +1885,8 @@ Hotkey_ClickHold(*)
 
         ShowTooltip("Holding Left", 2500)
 
-        PackedCoords := MakeLParam(ClickX, ClickY)
-        PostMessage(0x0201, 0x0001, PackedCoords, , TargetWindow)
+        SendBackgroundHold()
+        SetTimer(SendBackgroundHold, 50)
         RestoreGameCursorToPhysicalPosition(TargetWindow)
     }
     else
@@ -1844,9 +1902,16 @@ Hotkey_ClickHold(*)
 
 SendBackgroundHold()
 {
-    global ClickX, ClickY, TargetWindow
-    if WinExist(TargetWindow)
-        PostMessage(0x0201, 0x0001, MakeLParam(ClickX, ClickY), , TargetWindow)
+    global ClickHoldActive, ClickX, ClickY, TargetWindow
+
+    if !ClickHoldActive
+        return
+
+    targetHwnd := WinExist(TargetWindow)
+    if !targetHwnd
+        return
+
+    PostMessage(0x0201, 0x0001, MakeLParam(ClickX, ClickY), , "ahk_id " targetHwnd)
 }
 
 Hotkey_RightHold(*)
@@ -1917,4 +1982,3 @@ SendBackgroundSpamKey()
     global CurrentOutputKeys
     PostBackgroundKeyPress(CurrentOutputKeys["VSpam"])
 }
-
