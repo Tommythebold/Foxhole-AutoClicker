@@ -4,7 +4,6 @@
 
 global AppVersion := "2.0.3"
 global NormalWindowTitle := "Foxhole Autoclicker " AppVersion
-global UpdateWindowTitle := NormalWindowTitle " - Update Available"
 global GitHubLatestReleaseApi := "https://api.github.com/repos/Tommythebold/Foxhole-AutoClicker/releases/latest"
 global LatestVersion := ""
 global UpdateAvailable := false
@@ -154,6 +153,7 @@ BuildGui()
 TraySetup()
 ApplyStartupWindowState()
 SetTimer(CheckForUpdate, -1000)
+SetTimer(RetryUpdateCheckIfNeeded, -6000)
 SetTimer(CheckForUpdate, 21600000)
 OnExit(ReleaseAllOutputKeys)
 
@@ -1369,10 +1369,14 @@ CheckForUpdate()
     {
         request := ComObject("WinHttp.WinHttpRequest.5.1")
         request.SetTimeouts(3000, 3000, 5000, 5000)
-        request.Open("GET", GitHubLatestReleaseApi, false)
+
+        cacheBustedUrl := GitHubLatestReleaseApi (InStr(GitHubLatestReleaseApi, "?") ? "&" : "?") "_=" A_TickCount
+        request.Open("GET", cacheBustedUrl, false)
         request.SetRequestHeader("Accept", "application/vnd.github+json")
         request.SetRequestHeader("User-Agent", "Foxhole-Autoclicker/" AppVersion)
         request.SetRequestHeader("X-GitHub-Api-Version", "2022-11-28")
+        request.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate")
+        request.SetRequestHeader("Pragma", "no-cache")
         request.Send()
 
         if request.Status != 200
@@ -1395,18 +1399,22 @@ CheckForUpdate()
     }
 }
 
+RetryUpdateCheckIfNeeded()
+{
+    global UpdateCheckComplete
+    if !UpdateCheckComplete
+        CheckForUpdate()
+}
+
 ApplyUpdateState()
 {
-    global RebindGui, NormalWindowTitle, UpdateWindowTitle, UpdateAvailable
+    global RebindGui, UpdateAvailable
 
     if !IsObject(RebindGui)
         return
 
     try
-    {
-        RebindGui.Title := UpdateAvailable ? UpdateWindowTitle : NormalWindowTitle
         SetUpdateLinkVisibility(UpdateAvailable)
-    }
 }
 
 SetUpdateLinkVisibility(visible)
