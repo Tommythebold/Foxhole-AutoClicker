@@ -3,8 +3,15 @@ Get the latest version [**here**](https://github.com/Tommythebold/Foxhole-AutoCl
 
 <img width="362" height="789" alt="image" src="https://github.com/user-attachments/assets/0c35cfb1-cc17-4cc7-8157-af3aa1eff514" />
 
-
 # Changelog
+<details>
+<summary>Changelog</summary>
+v2.0.3
+  
+- Hold Left will now continue working through tab-outs.
+
+- Added "Update Available" banner etc.
+
 v2.0.2
 - Added support to reybind outputs key, for AZERTY and other keyboard users. Toggled via the Change Output Keys checkbox.
 - Updated UI a bit, new column names, etc.
@@ -31,6 +38,8 @@ v1.2 - Now allows you to use the Shift key while W/S hotkeys are active, which w
 v1.1 - Adds the "Spam Left Building" key. This key allows you to build with a hammer/shovel/etc without your character changing direction when your mouse moves. Requested by Saturnda.
 
 v1.0 - Initial release.
+</details>
+
 
 # Contact
 If you have any questions, issues, or feature requests, you can open an issue on this GitHub page, or message me on Discord (tommythebold).
