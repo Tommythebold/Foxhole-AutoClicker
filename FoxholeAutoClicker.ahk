@@ -1804,7 +1804,7 @@ Hotkey_TrainSlow(*)
     if TrainSlowActive
     {
         ShowTooltip("Train Slow ON — pressing " DisplayNameForOutputKey(CurrentOutputKeys["TrainSlow"]) " (Shift+Scroll: interval, Alt+Scroll: hold duration)", 2500)
-        SendBackgroundTrainSlow()
+        SetTimer(() => SendBackgroundTrainSlow(), -1)
         SetTimer(SendBackgroundTrainSlow, TrainSlowInterval)
     }
     else
