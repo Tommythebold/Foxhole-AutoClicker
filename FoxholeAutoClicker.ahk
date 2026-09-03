@@ -2,7 +2,7 @@
 #SingleInstance Force
 
 
-global AppVersion := "2.0.3"
+global AppVersion := "2.0.4"
 global NormalWindowTitle := "Foxhole Autoclicker " AppVersion
 global GitHubLatestReleaseApi := "https://api.github.com/repos/Tommythebold/Foxhole-AutoClicker/releases/latest"
 global LatestVersion := ""
@@ -18,12 +18,13 @@ global ClickHoldActive := false
 global RightHoldActive := false
 global VSpamActive := false
 global TrainSlowActive := false
-global TrainSlowInterval := 300
-global TrainSlowDefaultInterval := 300
+global TrainSlowInterval := 3400
+global TrainSlowDefaultInterval := 3400
 global AutoClickInterval := 50
 global AutoClickDefaultInterval := 50
 global AutoClickPaused := false
-global TrainSlowHoldDuration := 200
+global TrainSlowHoldDuration := 2000
+global TrainSlowDefaultHoldDuration := 2000
 
 global TooltipsEnabled := true
 
@@ -101,7 +102,7 @@ global ActionDescriptions := Map(
     "ClickHold", "Toggles holding left mouse for harvesters and CV's.",
     "RightHold", "Toggles holding right mouse button for binoculars and crane rotation.",
     "VSpam", "Repeatedly presses the configured Submit Large Item output key.",
-    "TrainSlow", "Periodically holds the configured Train Slow output key. Use Shift+Scroll to adjust the interval."
+    "TrainSlow", "Periodically holds the configured Train Slow output key. Use Shift+Scroll to adjust the interval, Alt+Scroll to adjust the hold duration."
 )
 global CurrentKeys := Map()
 global OutputActionNames := ["AutoWalk", "AutoReverse", "VSpam", "TrainSlow"]
@@ -159,7 +160,7 @@ OnExit(ReleaseAllOutputKeys)
 
 LoadKeybinds()
 {
-    global ActionNames, DefaultKeys, CurrentKeys, OutputActionNames, DefaultOutputKeys, CurrentOutputKeys, SettingsFile, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized, ChangeOutputKeys, TrainSlowInterval, AutoClickInterval, BannerSelection
+    global ActionNames, DefaultKeys, CurrentKeys, OutputActionNames, DefaultOutputKeys, CurrentOutputKeys, SettingsFile, DefaultClickX, DefaultClickY, TooltipsEnabled, UiTooltipsEnabled, LaunchMinimized, ChangeOutputKeys, TrainSlowInterval, TrainSlowHoldDuration, TrainSlowDefaultHoldDuration, AutoClickInterval, BannerSelection
 
     for actionName in ActionNames
     {
@@ -186,8 +187,12 @@ LoadKeybinds()
     if BannerSelection = ""
         BannerSelection := "Random Cycle"
     TrainSlowInterval := Integer(IniRead(SettingsFile, "Settings", "TrainSlowInterval", TrainSlowDefaultInterval))
-    TrainSlowInterval := Max(10, Min(3000, TrainSlowInterval))
+    TrainSlowInterval := Max(10, Min(5000, TrainSlowInterval))
     SaveTrainSlowInterval(TrainSlowInterval)
+
+    TrainSlowHoldDuration := Integer(IniRead(SettingsFile, "Settings", "TrainSlowHoldDuration", TrainSlowDefaultHoldDuration))
+    TrainSlowHoldDuration := Max(10, Min(5000, TrainSlowHoldDuration))
+    SaveTrainSlowHoldDuration(TrainSlowHoldDuration)
 
     AutoClickInterval := Integer(IniRead(SettingsFile, "Settings", "AutoClickInterval", AutoClickDefaultInterval))
     AutoClickInterval := Max(10, Min(500, AutoClickInterval))
@@ -222,6 +227,12 @@ SaveTrainSlowInterval(interval)
 {
     global SettingsFile
     IniWrite(interval, SettingsFile, "Settings", "TrainSlowInterval")
+}
+
+SaveTrainSlowHoldDuration(duration)
+{
+    global SettingsFile
+    IniWrite(duration, SettingsFile, "Settings", "TrainSlowHoldDuration")
 }
 
 SaveAutoClickInterval(interval)
@@ -1282,7 +1293,7 @@ RebuildGuiForOutputKeyMode(oldGui)
 ResetAllToDefaults(*)
 {
     global ActionNames, DefaultKeys, RebindButtons, OutputActionNames, DefaultOutputKeys, CurrentOutputKeys, OutputKeyButtons
-    global StatusCtrl, AutoClickInterval, AutoClickDefaultInterval, AutoClickPaused, TrainSlowInterval, TrainSlowDefaultInterval
+    global StatusCtrl, AutoClickInterval, AutoClickDefaultInterval, AutoClickPaused, TrainSlowInterval, TrainSlowDefaultInterval, TrainSlowHoldDuration, TrainSlowDefaultHoldDuration
 
     for actionName in OutputActionNames
         StopOutputAction(actionName)
@@ -1306,6 +1317,8 @@ ResetAllToDefaults(*)
     SaveAutoClickInterval(AutoClickInterval)
     TrainSlowInterval := TrainSlowDefaultInterval
     SaveTrainSlowInterval(TrainSlowInterval)
+    TrainSlowHoldDuration := TrainSlowDefaultHoldDuration
+    SaveTrainSlowHoldDuration(TrainSlowHoldDuration)
     StatusCtrl.Text := "All activation hotkeys, output keys, and timing values reset to defaults."
 }
 
@@ -1321,7 +1334,7 @@ MakeResetHandler(actionName)
 
 ResetSingleToDefault(actionName)
 {
-    global DefaultKeys, RebindButtons, ActionLabels, StatusCtrl, TrainSlowInterval, TrainSlowDefaultInterval
+    global DefaultKeys, RebindButtons, ActionLabels, StatusCtrl, TrainSlowInterval, TrainSlowDefaultInterval, TrainSlowHoldDuration, TrainSlowDefaultHoldDuration
     global AutoClickInterval, AutoClickDefaultInterval, AutoClickActive, AutoClickPaused
     global DefaultOutputKeys, CurrentOutputKeys, OutputKeyButtons
 
@@ -1345,7 +1358,9 @@ ResetSingleToDefault(actionName)
     {
         TrainSlowInterval := TrainSlowDefaultInterval
         SaveTrainSlowInterval(TrainSlowInterval)
-        StatusCtrl.Text := "'Train Slow' reset to F9, sends W, with a 300 ms interval."
+        TrainSlowHoldDuration := TrainSlowDefaultHoldDuration
+        SaveTrainSlowHoldDuration(TrainSlowHoldDuration)
+        StatusCtrl.Text := "'Train Slow' reset to F9, sends W, with a 300 ms interval and a 400 ms hold duration."
     }
     else if (actionName = "AutoClick")
     {
@@ -1788,8 +1803,8 @@ Hotkey_TrainSlow(*)
 
     if TrainSlowActive
     {
-        ShowTooltip("Train Slow ON — pressing " DisplayNameForOutputKey(CurrentOutputKeys["TrainSlow"]) " (Shift+Scroll)", 2500)
-        SendBackgroundTrainSlow()
+        ShowTooltip("Train Slow ON — pressing " DisplayNameForOutputKey(CurrentOutputKeys["TrainSlow"]) " (Shift+Scroll: interval, Alt+Scroll: hold duration)", 2500)
+        SetTimer(() => SendBackgroundTrainSlow(), -1)
         SetTimer(SendBackgroundTrainSlow, TrainSlowInterval)
     }
     else
@@ -1811,8 +1826,10 @@ SendBackgroundTrainSlow()
 }
 
 #HotIf TrainSlowActive
-+WheelUp::AdjustTrainSlowInterval(25)
-+WheelDown::AdjustTrainSlowInterval(-25)
++WheelUp::AdjustTrainSlowInterval(50)
++WheelDown::AdjustTrainSlowInterval(-50)
+!WheelUp::AdjustTrainSlowHoldDuration(50)
+!WheelDown::AdjustTrainSlowHoldDuration(-50)
 #HotIf
 
 #HotIf AutoClickActive
@@ -1854,10 +1871,18 @@ AdjustAutoClickInterval(change)
 AdjustTrainSlowInterval(change)
 {
     global TrainSlowInterval
-    TrainSlowInterval := Max(10, Min(3000, TrainSlowInterval + change))
+    TrainSlowInterval := Max(10, Min(5000, TrainSlowInterval + change))
     SaveTrainSlowInterval(TrainSlowInterval)
     SetTimer(SendBackgroundTrainSlow, TrainSlowInterval)
     ShowTooltip("Train Slow interval: " TrainSlowInterval " ms", 1500)
+}
+
+AdjustTrainSlowHoldDuration(change)
+{
+    global TrainSlowHoldDuration
+    TrainSlowHoldDuration := Max(10, Min(5000, TrainSlowHoldDuration + change))
+    SaveTrainSlowHoldDuration(TrainSlowHoldDuration)
+    ShowTooltip("Train Slow hold duration: " TrainSlowHoldDuration " ms", 1500)
 }
 
 Hotkey_ClickHold(*)
